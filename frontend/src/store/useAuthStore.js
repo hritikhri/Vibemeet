@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../lib/api';
-
+    
 export const useAuthStore = create((set, get) => ({
   user: null,
   token: localStorage.getItem('token'),
