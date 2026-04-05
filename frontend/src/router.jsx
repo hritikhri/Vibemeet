@@ -56,6 +56,10 @@ export const router = createBrowserRouter([
     path: "/edit-profile", 
     element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
   },
+  { 
+    path: "/settings", 
+    element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
+  },
   { path: "/chat/private/:otherUserId", element: <ProtectedRoute><PrivateChat /></ProtectedRoute> }
 ]);
 
