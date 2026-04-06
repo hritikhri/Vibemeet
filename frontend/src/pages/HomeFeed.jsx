@@ -7,18 +7,24 @@ import CreateActivityModal from '../components/activity/CreateActivityModal';
 import FeedCard from '../components/feed/FeedCard';
 import { Plus } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
+import { useNavigate } from 'react-router-dom';
 
 export default function HomeFeed() {
+    const navigate = useNavigate();
   const { user } = useAuthStore();
   const { activities, loading, loadFeed } = useFeedStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
-
+  
   useEffect(() => {
     loadFeed();
   }, [loadFeed]);
 
   const handleActivityCreated = () => {
     loadFeed();
+  };
+    const handleCreatorClick = (e) => {
+    e.stopPropagation();
+    navigate(`/profile/${user._id}`);
   };
 
   return (
@@ -36,9 +42,13 @@ export default function HomeFeed() {
           {/* Right Section */}
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="px-3 py-1 text-xs sm:text-sm bg-secondary/50 rounded-full">
-              {user?.mood || 'social'}
+              {user?.mood || 'add Your Mood'}
             </span>
+            <div               onClick={handleCreatorClick}
+ >
+
             <Avatar src={user?.avatar} size="sm" />
+            </div>
           </div>
         </div>
       </header>

@@ -9,7 +9,7 @@ import { ArrowLeft, Send } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 
-let socket;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function PrivateChat() {
   const { otherUserId } = useParams();
@@ -21,119 +21,169 @@ export default function PrivateChat() {
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [online, setOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // ==================== INITIAL SETUP ====================
+  // ====================== SOCKET SETUP ======================
   useEffect(() => {
-    if (!user?._id) return;
+    if (!otherUserId || !user?._id) return;
 
-    socket = io('http://localhost:5000', { reconnection: true });
+    const socket = io(SOCKET_URL, {
+      reconnection: true,
+      reconnectionAttempts: 5,
+    });
+
+    socketRef.current = socket;
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('authenticate', user._id);
-      socket.emit('joinPrivateChat', { userId: otherUserId });
+      socket.emit('authenticate', {
+        userId: user._id,
+        name: user.name,
+        avatar: user.avatar,
+      });
+      socket.emit('joinPrivateChat', otherUserId);
       socket.emit('getOnlineStatus', otherUserId);
     });
 
     socket.on('disconnect', () => setIsConnected(false));
 
-    // Receive real message from other user
     socket.on('newPrivateMessage', (msg) => {
-      setMessages(prev => {
-        // Prevent duplicate
-        if (prev.some(m => m._id === msg._id)) return prev;
-        return [...prev, { ...msg, isMe: false }];
-      });
+      setMessages((prev) => [...prev, msg]);
     });
 
-    // Load chat history + other user
-    const loadData = async () => {
+    socket.on('typing', ({ isTyping: status }) => {
+      setIsTyping(status);
+    });
+
+    socket.on('userOnlineStatus', ({ userId, isOnline, lastSeen: ls }) => {
+      if (userId === otherUserId) {
+        setOnline(isOnline);
+        if (!isOnline && ls) setLastSeen(ls);
+      }
+    });
+
+    // Load user info + chat history
+    const loadChatData = async () => {
       try {
         const [userRes, chatRes] = await Promise.all([
           api.get(`/users/${otherUserId}`),
-          api.get(`/chats/private/${otherUserId}`)
+          api.get(`/chats/private/${otherUserId}`),
         ]);
 
         setOtherUser(userRes.data);
         setMessages(chatRes.data.messages || []);
       } catch (err) {
-        console.error("Failed to load chat:", err);
+        console.error("Failed to load chat data:", err);
       }
     };
 
-    loadData();
+    loadChatData();
 
-    return () => socket?.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [otherUserId, user?._id]);
 
-  // Auto scroll
+  // Auto-scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ==================== SEND MESSAGE ====================
+  // Send Message with Optimistic Update
   const sendMessage = () => {
-    if (!newMessage.trim() || !socket) return;
+    if (!newMessage.trim() || !socketRef.current) return;
 
     const tempId = `temp-${Date.now()}`;
+    const text = newMessage.trim();
 
+    // Optimistic message
     const optimisticMsg = {
       _id: tempId,
-      text: newMessage.trim(),
       from: user._id,
+      text,
+      createdAt: new Date().toISOString(),
+      status: 'sending',
       isMe: true,
-      createdAt: new Date()
     };
 
-    // Optimistic update
-    setMessages(prev => [...prev, optimisticMsg]);
-
-    // Send to socket
-    socket.emit('sendPrivateMessage', {
-      toUserId: otherUserId,
-      text: newMessage.trim()
-    });
-
+    setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage('');
+
+    socketRef.current.emit('sendPrivateMessage', { toUserId: otherUserId, text }, (response) => {
+      if (response?.success) {
+        setMessages((prev) =>
+          prev.map((msg) => (msg._id === tempId ? response.message : msg))
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) => (msg._id === tempId ? { ...msg, status: 'failed' } : msg))
+        );
+      }
+    });
   };
 
-  // ==================== TYPING ====================
+  // Typing Handler
   const handleTyping = (e) => {
-    setNewMessage(e.target.value);
+    const value = e.target.value;
+    setNewMessage(value);
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
-    socket.emit('typing', { toUserId: otherUserId, isTyping: true });
+    socketRef.current?.emit('typing', { toUserId: otherUserId, isTyping: true });
 
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('typing', { toUserId: otherUserId, isTyping: false });
+      socketRef.current?.emit('typing', { toUserId: otherUserId, isTyping: false });
     }, 1500);
   };
 
-  // Check if message belongs to current user
+  const goToProfile = () => {
+    if (otherUser) navigate(`/profile/${otherUser._id}`);
+  };
+
   const isMyMessage = (msg) => {
     return msg.isMe || msg.from === user?._id || msg.from?._id === user?._id;
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col max-w-2xl mx-auto">
       {/* Header */}
       <div className="sticky top-0 bg-white border-b z-50 px-6 py-4 flex items-center gap-4">
-        <button onClick={() => navigate(-1)}><ArrowLeft size={24} /></button>
+        <button onClick={() => navigate(-1)} className="p-2">
+          <ArrowLeft size={24} />
+        </button>
+
         {otherUser && (
-          <div className="flex items-center gap-3 flex-1">
+          <div
+            onClick={goToProfile}
+            className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80"
+          >
             <div className="relative">
               <Avatar src={otherUser.avatar} size="md" />
-              {online && <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />}
+              {online ? (
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+              ) : lastSeen && (
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-gray-400 rounded-full border-2 border-white" />
+              )}
             </div>
-            <div>
-              <p className="font-medium">{otherUser.name}</p>
-              <p className="text-xs text-gray-500">
-                @{otherUser.username} {isTyping && <span className="text-primary">• typing...</span>}
+
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">{otherUser.name}</p>
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                @{otherUser.username || 'user'}
+                {isTyping ? (
+                  <span className="text-primary font-medium ml-2">• typing...</span>
+                ) : online ? (
+                  <span className="text-green-600 ml-2">• online</span>
+                ) : lastSeen ? (
+                  <span className="ml-2">
+                    • last seen {new Date(lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                ) : null}
               </p>
             </div>
           </div>
@@ -144,21 +194,18 @@ export default function PrivateChat() {
       <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-gray-50">
         {messages.map((msg, i) => {
           const isMe = isMyMessage(msg);
-
           return (
             <div key={msg._id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] px-5 py-3 rounded-3xl ${
-                isMe 
-                  ? 'bg-primary text-white rounded-br-none' 
-                  : 'bg-white shadow-sm rounded-bl-none'
-              }`}>
-                <p className="text-[15px] leading-relaxed">{msg.text}</p>
-                <p className="text-[10px] mt-1 opacity-70 text-right">
-                  {new Date(msg.createdAt).toLocaleTimeString([], { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </p>
+              <div className="flex gap-3 max-w-[80%]">
+                {!isMe && <Avatar src={otherUser?.avatar} size="sm" className="mt-1" />}
+                <div className={`px-5 py-3 rounded-3xl ${
+                  isMe ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none'
+                }`}>
+                  <p className="text-[15px] leading-relaxed">{msg.text}</p>
+                  <p className="text-[10px] mt-1 opacity-70 text-right">
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -177,7 +224,7 @@ export default function PrivateChat() {
             placeholder="Type a message..."
             className="flex-1 bg-gray-100 rounded-2xl px-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <Button onClick={sendMessage} disabled={!newMessage.trim()}>
+          <Button onClick={sendMessage} disabled={!newMessage.trim()} className="px-6">
             <Send size={20} />
           </Button>
         </div>
@@ -186,4 +233,4 @@ export default function PrivateChat() {
       <BottomNav />
     </div>
   );
-}        
+}

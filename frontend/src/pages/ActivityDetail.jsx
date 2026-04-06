@@ -1,5 +1,6 @@
 // frontend/src/pages/ActivityDetail.jsx
-import { useEffect, useState, useRef } from 'react';
+import { Heart, MessageCircle, Calendar, MapPin, ArrowLeft, Send, Users, X } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import io from 'socket.io-client';
@@ -7,9 +8,8 @@ import api from '../lib/api';
 import BottomNav from '../components/layout/BottomNav';
 import Avatar from '../components/common/Avatar';
 import Button from '../components/ui/Button';
-import { Heart, MessageCircle, Calendar, MapPin, ArrowLeft, Send } from 'lucide-react';
 
-let socket;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function ActivityDetail() {
   const { id } = useParams();
@@ -21,116 +21,180 @@ export default function ActivityDetail() {
   const [newMessage, setNewMessage] = useState('');
   const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  const [onlineCount, setOnlineCount] = useState(1);
+  const [onlineUsersList, setOnlineUsersList] = useState([]);
+  const [showOnlineModal, setShowOnlineModal] = useState(false);
+
+  const [isConnected, setIsConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState(new Set());
+
+  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
-  // Socket Connection
+  // ====================== SOCKET CONNECTION ======================
   useEffect(() => {
-    socket = io('http://localhost:5000');
-    socket.emit('joinActivity', id);
+    const socket = io(SOCKET_URL, {
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
 
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setIsConnected(true);
+      if (user) {
+        socket.emit('authenticate', {
+          userId: user._id,
+          name: user.name,
+          avatar: user.avatar,
+        });
+      }
+      socket.emit('joinActivity', id);
+    });
+
+    socket.on('disconnect', () => setIsConnected(false));
+
+    // Online Count
+    socket.on('activityOnlineCount', ({ activityId, count }) => {
+      if (activityId === id) setOnlineCount(count);
+    });
+
+    // Realtime Online Users List
+    socket.on('activityOnlineUsers', ({ activityId, users }) => {
+      if (activityId === id) setOnlineUsersList(users);
+    });
+
+    // New Message from group
     socket.on('newMessage', (msg) => {
       setMessages((prev) => {
         if (prev.some((m) => m._id === msg._id)) return prev;
-        return [...prev, msg];
+        return [...prev, { ...msg, status: 'sent' }];
+      });
+    });
+
+    // Typing Indicator (from groupChat.js)
+    socket.on('typing', ({ name, isTyping }) => {
+      setTypingUsers((prev) => {
+        const newSet = new Set(prev);
+        if (isTyping) newSet.add(name || 'Someone');
+        else newSet.delete(name || 'Someone');
+        return newSet;
       });
     });
 
     return () => {
-      if (socket) socket.disconnect();
+      socket.disconnect();
     };
-  }, [id]);
-
-  // Load Activity & Messages
-  useEffect(() => {
-    const fetchActivity = async () => {
-      try {
-        const { data } = await api.get(`/activities/${id}`);
-        setActivity(data);
-        setLiked(data.likes?.some((like) => like.toString() === user?._id));
-
-        // Normalize messages
-        const normalized = (data.messages || []).map((msg) => ({
-          ...msg,
-          sender: msg.sender || { _id: null, name: 'Unknown' },
-        }));
-        setMessages(normalized);
-      } catch (err) {
-        console.error('Failed to load activity:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchActivity();
   }, [id, user]);
 
-  // Auto-scroll to bottom
+  // ====================== FETCH ACTIVITY ======================
+  const fetchActivity = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data } = await api.get(`/activities/${id}`);
+      setActivity(data);
+      setLiked(data.likes?.some((like) => like.toString() === user._id));
+      // console.log(data.messa)
+      const normalized = (data.messages || []).map((msg) => ({
+        ...msg,
+        status: 'sent',
+      }));
+      setMessages(normalized);
+    } catch (err) {
+      console.error('Failed to load activity:', err);
+      setError('Failed to load activity. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, user]);
+
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
+
+  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Check if message belongs to current user
+  // ====================== HELPERS ======================
   const isMyMessage = (msg) => {
     if (!msg || !user) return false;
-    const senderId = msg.sender?._id || msg.sender;
-    return (
-      senderId?.toString() === user._id?.toString() ||
-      msg.sender?.name === user.name
-    );
+    return (msg.sender?._id || msg.sender)?.toString() === user._id?.toString();
   };
 
-  // Safe time formatter
   const formatTime = (dateStr) => {
     if (!dateStr) return 'Just now';
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Just now';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return isNaN(date.getTime()) ? 'Just now' : date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
 
-  // Send Message with Optimistic Update
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !user) return;
+  // ====================== SEND MESSAGE ======================
+  const sendMessage = () => {
+    if (!newMessage.trim() || !socketRef.current) return;
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const text = newMessage.trim();
 
     const optimisticMsg = {
       _id: tempId,
-      text: newMessage.trim(),
-      sender: {
-        _id: user._id,
-        name: user.name,
-        avatar: user.avatar,
-      },
+      sender: { _id: user._id, name: user.name, avatar: user.avatar },
+      text,
       createdAt: new Date().toISOString(),
+      status: 'sending',
     };
 
-    // Add optimistic message (shows on right side immediately)
     setMessages((prev) => [...prev, optimisticMsg]);
-    const messageText = newMessage.trim();
     setNewMessage('');
 
-    try {
-      const { data } = await api.post(`/activities/${id}/messages`, { text: messageText });
-
-      // Replace temp message with real server message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg._id === tempId ? (data.message || data) : msg
-        )
-      );
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      // Remove failed optimistic message
-      setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
-    }
+    socketRef.current.emit('sendMessage', { activityId: id, text }, (response) => {
+      if (response?.success) {
+        setMessages((prev) =>
+          prev.map((msg) => msg._id === tempId ? { ...response.message, status: 'sent' } : msg)
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) => msg._id === tempId ? { ...msg, status: 'failed' } : msg)
+        );
+      }
+    });
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-lg">Loading vibe...</div>;
-  }
-  if (!activity) {
-    return <div className="min-h-screen flex items-center justify-center">Activity not found</div>;
+  // Typing Handler
+  const handleTyping = () => {
+    if (!socketRef.current) return;
+
+    socketRef.current.emit('typing', { 
+      activityId: id, 
+      isTyping: true 
+    });
+
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socketRef.current.emit('typing', { activityId: id, isTyping: false });
+    }, 1300);
+  };
+
+  // ====================== RENDER ======================
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-lg">Loading vibe...</div>;
+
+  if (error || !activity) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+        <p className="text-red-500">{error || 'Activity not found'}</p>
+        <Button onClick={fetchActivity}>Retry</Button>
+      </div>
+    );
   }
 
   return (
@@ -138,12 +202,25 @@ export default function ActivityDetail() {
       {/* Header */}
       <div className="sticky top-0 bg-white border-b z-50">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-xl">
             <ArrowLeft size={24} />
           </button>
-          <h1 className="font-poppins font-semibold text-xl flex-1 truncate">
-            {activity.title}
-          </h1>
+
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold text-xl truncate">{activity.title}</h1>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              {isConnected ? 'Live • Everyone can see messages' : 'Connecting...'}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowOnlineModal(true)}
+            className="flex items-center gap-2 px-5 py-2 bg-gray-100 hover:bg-gray-200 rounded-2xl text-sm font-medium transition-all"
+          >
+            <Users size={19} />
+            <span>{onlineCount} online</span>
+          </button>
         </div>
       </div>
 
@@ -154,20 +231,20 @@ export default function ActivityDetail() {
             onClick={() => navigate(`/profile/${activity.creator._id}`)}
             className="flex items-center gap-4 cursor-pointer mb-6 hover:opacity-80"
           >
-            <Avatar src={activity.creator.avatar} />
+            <Avatar src={activity.creator.avatar} size="lg" />
             <div>
               <p className="font-medium">{activity.creator.name}</p>
-              <p className="text-xs text-gray-500">Creator</p>
+              <p className="text-xs text-gray-500">Organizer</p>
             </div>
           </div>
 
           <h2 className="text-2xl font-semibold mb-3">{activity.title}</h2>
           <p className="text-gray-700 mb-6 leading-relaxed">{activity.description}</p>
 
-          <div className="flex gap-6 text-sm">
+          <div className="flex gap-6 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <Calendar size={18} className="text-primary" />
-              {new Date(activity.time).toLocaleDateString()}
+              {new Date(activity.time).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
             </div>
             <div className="flex items-center gap-2">
               <MapPin size={18} className="text-primary" />
@@ -180,35 +257,38 @@ export default function ActivityDetail() {
         <div className="flex gap-3">
           <Button
             variant="secondary"
-            onClick={() => {/* like handler */}}
+            onClick={() => setLiked(!liked)}
             className="flex-1 flex items-center justify-center gap-2"
           >
-            <Heart size={22} className={liked ? 'fill-accent text-accent' : ''} />
+            <Heart size={22} className={liked ? 'fill-red-500 text-red-500' : ''} />
             Like ({activity.likes?.length || 0})
           </Button>
           <Button className="flex-1">Join Vibe</Button>
         </div>
 
         {/* Group Chat */}
-        <div className="bg-white rounded-3xl shadow-soft overflow-hidden">
-          <div className="px-6 py-4 border-b font-semibold flex items-center gap-2">
-            <MessageCircle size={20} className="text-primary" />
-            Group Chat
+        <div className="bg-white rounded-3xl shadow-soft overflow-hidden flex flex-col h-[520px]">
+          <div className="px-6 py-4 border-b font-semibold flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageCircle size={20} className="text-primary" />
+              Group Chat
+            </div>
+            {typingUsers.size > 0 && (
+              <div className="text-xs text-primary animate-pulse">
+                {Array.from(typingUsers).join(', ')} typing...
+              </div>
+            )}
           </div>
 
-          <div className="h-[420px] p-6 overflow-y-auto space-y-6 bg-gray-50">
+          {/* Messages Area */}
+          <div className="flex-1 p-6 overflow-y-auto bg-gray-50 space-y-6">
             {messages.map((msg, index) => {
               const isMine = isMyMessage(msg);
-              // Safe unique key
-              const key = msg._id || `msg-${index}-${msg.createdAt || Date.now()}`;
+              const key = msg._id || `msg-${index}`;
 
               return (
-                <div
-                  key={key}
-                  className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex gap-3 max-w-[75%] ${isMine ? 'flex-row-reverse' : ''}`}>
-                    {/* Avatar only for others */}
+                <div key={key} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-3 max-w-[78%] ${isMine ? 'flex-row-reverse' : ''}`}>
                     {!isMine && (
                       <div className="flex-shrink-0 pt-1">
                         <Avatar src={msg.sender?.avatar} size="sm" />
@@ -216,31 +296,24 @@ export default function ActivityDetail() {
                     )}
 
                     <div className="flex flex-col">
-                      {/* Name only for others */}
                       {!isMine && msg.sender?.name && (
-                        <p className="text-xs text-gray-500 mb-1 ml-1">
-                          {msg.sender.name}
-                        </p>
+                        <p className="text-xs text-gray-500 mb-1 ml-1">{msg.sender.name}</p>
                       )}
 
-                      {/* Message Bubble */}
-                      <div
-                        className={`px-5 py-3 rounded-3xl text-[15px] leading-relaxed
-                          ${isMine
-                            ? 'bg-primary text-white rounded-br-none'
-                            : 'bg-white shadow-sm rounded-bl-none border border-gray-100'
-                          }`}
-                      >
+                      <div className={`px-5 py-3 rounded-3xl text-[15px] leading-relaxed
+                        ${isMine ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none border border-gray-100'}`}>
                         {msg.text}
                       </div>
 
-                      {/* Time */}
-                      <p
-                        className={`text-[10px] text-gray-400 mt-1 px-2 ${
-                          isMine ? 'text-right' : ''
-                        }`}
-                      >
+                      <p className={`text-[10px] text-gray-400 mt-1 px-2 ${isMine ? 'text-right' : ''}`}>
                         {formatTime(msg.createdAt)}
+                        {isMine && (
+                          <span className="ml-2">
+                            {msg.status === 'sending' && '⋯'}
+                            {msg.status === 'sent' && '✓'}
+                            {msg.status === 'failed' && '✕'}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -250,28 +323,72 @@ export default function ActivityDetail() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input Area */}
           <div className="p-4 border-t bg-white">
             <div className="flex gap-3">
               <input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Type a message..."
+                onChange={(e) => {
+                  setNewMessage(e.target.value);
+                  handleTyping();
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage())}
+                placeholder="Type a message... (Enter to send)"
                 className="flex-1 bg-gray-100 rounded-2xl px-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary text-base"
               />
-              <Button
-                onClick={sendMessage}
-                disabled={!newMessage.trim()}
-                className="px-6"
-              >
+              <Button onClick={sendMessage} disabled={!newMessage.trim()} className="px-6">
                 <Send size={20} />
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Online Users Modal */}
+      {showOnlineModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-2xl">
+            <div className="px-6 py-5 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users size={26} className="text-primary" />
+                <div>
+                  <p className="font-semibold text-xl">Online in this Vibe</p>
+                  <p className="text-sm text-gray-500">{onlineCount} people here right now</p>
+                </div>
+              </div>
+              <button onClick={() => setShowOnlineModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <X size={26} />
+              </button>
+            </div>
+
+            <div className="p-3 max-h-[62vh] overflow-y-auto">
+              {onlineUsersList.length > 0 ? (
+                onlineUsersList.map((u, index) => (
+                  <div key={index} className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl mx-2 my-1">
+                    <Avatar src={u.avatar} size="lg" />
+                    <div>
+                      <p className="font-medium text-lg">{u.name}</p>
+                      <p className="text-green-600 text-sm flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                        Online now
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-16 text-gray-500">No one is online at the moment</div>
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-white">
+              <Button onClick={() => setShowOnlineModal(false)} className="w-full" variant="secondary">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

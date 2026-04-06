@@ -7,7 +7,8 @@ import Avatar from '../components/common/Avatar';
 import Button from '../components/ui/Button';
 import api from '../lib/api';
 
-export default function Explore() {
+export default function Explore() {  
+
   const [activities, setActivities] = useState([]);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
@@ -84,40 +85,53 @@ export default function Explore() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 bg-white border-b z-50">
-        <div className="max-w-2xl mx-auto px-6 py-5">
-          <h1 className="text-3xl font-poppins font-bold mb-6">Explore Vibes</h1>
+<header className="sticky top-0 bg-white border-b z-50 shadow-sm">
+  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-2">
 
-          {/* Search Bar */}
-          <div className="relative mb-6">
-            <Search className="absolute left-5 top-4 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search activities or people..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-14 pr-6 py-4 bg-white rounded-3xl border border-gray-100 focus:border-primary outline-none text-base"
-            />
-          </div>
+    {/* LOGO + SEARCH */}
+    <div className="flex items-center justify-between gap-3 relative">
+      {/* TITLE */}
+      <h1 className="text-lg sm:text-xl font-bold font-poppins text-gray-800 flex-shrink-0">
+        Explore Vibes
+      </h1>
 
-          {/* Radius Filter */}
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {[5, 10, 15, 30, 50].map((r) => (
-              <button
-                key={r}
-                onClick={() => setRadius(r)}
-                className={`px-6 py-2.5 rounded-3xl whitespace-nowrap text-sm font-medium transition-all ${
-                  radius === r
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white border border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {r} km
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
+      {/* SEARCH ICON & EXPANDABLE BAR */}
+      <div className="relative flex-1 max-w-[40px] sm:max-w-md">
+        <input
+          type="text"
+          placeholder="Search activities or people..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onFocus={(e) => e.target.parentElement.classList.add('w-full')}
+          onBlur={(e) => e.target.parentElement.classList.remove('w-full')}
+          className="w-10 sm:w-full pl-9 pr-3 py-2 sm:py-2.5 bg-gray-100 rounded-full border border-gray-200 focus:border-primary outline-none text-sm sm:text-base transition-all duration-300 ease-in-out"
+        />
+        <Search
+          className="absolute left-3 top-2.5 text-gray-400 cursor-pointer"
+          size={20}
+          onClick={() => document.querySelector('input').focus()}
+        />
+      </div>
+    </div>
+
+    {/* RADIUS FILTER */}
+    <div className="flex gap-2 justify-start sm:justify-start flex-wrap sm:flex-nowrap py-1">
+      {[5, 10, 15, 30, 50].map((r) => (
+        <button
+          key={r}
+          onClick={() => setRadius(r)}
+          className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+            radius === r
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          {r} km
+        </button>
+      ))}
+    </div>
+  </div>
+</header>
 
       <div className="max-w-2xl mx-auto px-6 pt-6">
         {loading ? (
@@ -174,9 +188,12 @@ export default function Explore() {
                       className="bg-white rounded-3xl p-6 shadow-soft"
                     >
                       <div className="flex items-center gap-4 mb-4">
+                        <div onClick={()=>(navigate(`/profile/${act.creator._id}`))}>
                         <Avatar src={act.creator?.avatar} size="md" />
+
+                        </div>
                         <div>
-                          <p className="font-medium">{act.creator?.name}</p>
+                          <p className="font-medium" onClick={()=>(navigate(`/profile/${act.creator._id}`))}>{act.creator?.name}</p>
                           <p className="text-xs text-gray-500">
                             {act.distance ? act.distance.toFixed(1) : '?'} km away
                           </p>

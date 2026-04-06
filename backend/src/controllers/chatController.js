@@ -4,7 +4,7 @@ exports.getPrivateChat = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.id;
-
+    // console.log(userId,currentUserId)
     console.log(`Fetching chat between ${currentUserId} and ${userId}`);
 
     const messages = await PrivateMessage.find({
@@ -22,6 +22,24 @@ exports.getPrivateChat = async (req, res) => {
     res.json({ messages });
   } catch (error) {
     console.error("Error in getPrivateChat:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.createMessage= async (req, res) => {
+  try {
+    const { text } = req.body;
+    const fromUserId = req.user.id;
+    const toUserId = req.params.userId;
+
+    const message = await PrivateMessage.create({
+      from: fromUserId,
+      to: toUserId,
+      text
+    });
+
+    res.json({ message });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };

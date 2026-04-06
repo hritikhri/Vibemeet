@@ -65,7 +65,7 @@ app.use((req, res) => {
 });
 
 // ====================== SOCKET.IO SETUP ======================
-const {setupSocket}= require ('./utils/socket.js');
+const {setupSocket}= require ('./socket/index.js');
 setupSocket(io);
 
 // ====================== START SERVER ======================

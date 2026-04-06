@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/', protect, activityController.getAllActivities);
 router.get('/explore', protect, activityController.exploreActivities);
 router.get('/:id', protect, activityController.getActivityById);
+
 router.post('/', protect, activityController.createActivity);
 router.post('/:id/join', protect, activityController.requestJoin);
 router.post('/:id/like', protect, activityController.likeActivity);

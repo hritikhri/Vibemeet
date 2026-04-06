@@ -15,6 +15,7 @@ import Profile from './pages/Profile';           // ← This will handle both /p
 import EditProfile from './pages/EditProfile';
 import OtpVerification from './pages/OtpVerification';
 import PrivateChat from './pages/PrivateChat';
+import OurMainLayout from './components/ui/OurMainLayout';
 
 
 export const router = createBrowserRouter([
@@ -23,34 +24,33 @@ export const router = createBrowserRouter([
   { path: "/signup", element: <Signup /> },
   { path: "/verify-otp", element: <OtpVerification /> },
 
-  // Protected Routes
   { 
     path: "/home", 
     element: <ProtectedRoute><HomeFeed /></ProtectedRoute> 
   },
   { 
     path: "/explore", 
-    element: <ProtectedRoute><Explore /></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><Explore /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/activity/:id", 
-    element: <ProtectedRoute><ActivityDetail /></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><ActivityDetail /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/chat", 
-    element: <ProtectedRoute><ChatPage /></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><ChatPage /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/notifications", 
-    element: <ProtectedRoute><Notifications /></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><Notifications /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/profile", 
-    element: <ProtectedRoute><Profile /></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><Profile /></OurMainLayout></ProtectedRoute> 
   },
   { 
-    path: "/profile/:id",           // ← NEW: Dynamic profile route
-    element: <ProtectedRoute><Profile /></ProtectedRoute> 
+    path: "/profile/:id",
+    element: <ProtectedRoute><OurMainLayout><Profile /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/edit-profile", 
@@ -60,6 +60,6 @@ export const router = createBrowserRouter([
     path: "/settings", 
     element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
   },
-  { path: "/chat/private/:otherUserId", element: <ProtectedRoute><PrivateChat /></ProtectedRoute> }
+  { path: "/chat/private/:otherUserId", element: <ProtectedRoute><OurMainLayout><PrivateChat /></OurMainLayout></ProtectedRoute> }
 ]);
 

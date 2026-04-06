@@ -96,10 +96,33 @@ exports.getActivityById = async (req, res) => {
     const activity = await Activity.findById(req.params.id)
       .populate("creator", "name avatar")
       .populate("participants", "name avatar")
-      .populate("comments.user", "name avatar");
+      .populate("likes", "name avatar")           // optional
+      .populate({
+        path: "comments.user",     // if you still use comments
+        select: "name avatar"
+      })
+      .populate({
+        path: "messages",          // ← NEW: Populate messages
+        select: "text createdAt",  // only needed fields
+        populate: {
+          path: "sender",
+          select: "name avatar"    // get sender name + avatar
+        },
+        options: { sort: { createdAt: 1 } }   // important: sort oldest to newest
+      }).populate({
+        path: "messages.seenBy",      // ← NEW: Populate seenBy users
+        select: "name avatar"
+      });
+
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // console.log(activity)
     res.json(activity);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error fetching activity:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
