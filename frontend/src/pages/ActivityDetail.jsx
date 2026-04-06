@@ -85,7 +85,7 @@ export default function ActivityDetail() {
         return newSet;
       });
     });
-                  
+                           
     return () => {
       socket.disconnect();
     };
