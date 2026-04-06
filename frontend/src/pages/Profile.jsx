@@ -132,7 +132,7 @@ export default function Profile() {
         </div>
       </div>
     );
-  }
+  }   
 
   return (
     <div className="min-h-screen bg-background pb-20">
