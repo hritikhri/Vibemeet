@@ -122,7 +122,7 @@ export default function Profile() {
       alert(err.response?.data?.message || "Failed to unfriend");
     }
   };
-
+     
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
