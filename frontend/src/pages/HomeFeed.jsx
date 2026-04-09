@@ -31,7 +31,7 @@ export default function HomeFeed() {
     <div className="min-h-screen bg-background pb-24">
         <Sidebar />
       {/* Header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b z-50">
+      <header className="sticky top-0 bg-white/80 backdrop-blur-md z-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           
           {/* Logo */}
@@ -44,9 +44,7 @@ export default function HomeFeed() {
             <span className="px-3 py-1 text-xs sm:text-sm bg-secondary/50 rounded-full">
               {user?.mood || 'add Your Mood'}
             </span>
-            <div               onClick={handleCreatorClick}
- >
-
+            <div onClick={handleCreatorClick}>
             <Avatar src={user?.avatar} size="sm" />
             </div>
           </div>
@@ -54,7 +52,7 @@ export default function HomeFeed() {
       </header>
 
       {/* Feed */}
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 pt-5">
+      <main className="bg-background max-w-3xl mx-auto px-3 sm:px-6 pt-5">
         {loading ? (
           <div className="space-y-4 sm:space-y-6">
             {[1, 2, 3].map(i => (
@@ -65,15 +63,16 @@ export default function HomeFeed() {
             ))}
           </div>
         ) : activities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500">
-            <div className="text-4xl mb-3">🎉</div>
-            <p className="text-sm sm:text-base font-medium">
-              No activities yet
-            </p>
-            <p className="text-xs sm:text-sm">
-              Start by creating your first vibe ✨
-            </p>
-          </div>
+          <div className="flex flex-col items-center justify-center text-center py-20">
+  <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-accent/10 rounded-3xl flex items-center justify-center mb-6">
+    <span className="text-5xl">🏞️</span>
+  </div>
+  <p className="text-2xl font-semibold text-gray-900 mb-2">No activities yet</p>
+  <p className="text-gray-500 max-w-xs">
+    Start creating your first vibe and share amazing moments with friends
+  </p>
+
+</div>
         ) : (
           <div className="space-y-4 sm:space-y-6">
             {activities.map(activity => (

@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
 const dotenv = require("dotenv").config();
+const crypto = require("crypto");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -21,6 +22,150 @@ const generateToken = (user) => {
   return jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if email exists (security best practice)
+      
+      return res.status(200).json({ 
+        message: "If an account with that email exists, a reset link has been sent." 
+      });
+    }
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    // Option 1: Simple (for quick testing) - using in-memory (you had this)
+    // resetTokens.set(email, { token: hashedToken, expiry: Date.now() + 15 * 60 * 1000 });
+
+    // Option 2: Better - Store in User model (Recommended for now)
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    await user.save();
+
+    // Create reset link for React frontend (Vite default port 5173)
+    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+    // Send email
+    const mailOptions = {
+      from: `"Vibe Meet" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Reset Your Vibe Meet Password",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #7e22ce;">Reset Your Password</h2>
+          <p>Hi there,</p>
+          <p>You requested to reset your password for Vibe Meet.</p>
+          <p>Click the button below to set a new password:</p>
+          
+          <a href="${resetLink}" 
+             style="background: linear-gradient(to right, #7e22ce, #db2777); 
+                    color: white; 
+                    padding: 14px 28px; 
+                    text-decoration: none; 
+                    border-radius: 12px; 
+                    display: inline-block; 
+                    margin: 20px 0;">
+            Reset Password
+          </a>
+
+          <p style="color: #666; font-size: 14px;">
+            This link will expire in 15 minutes.<br>
+            If you didn't request this, please ignore this email.
+          </p>
+          <p>Best regards,<br><strong>Vibe Meet Team</strong> ❤️</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({
+      message: "Password reset link sent successfully! Please check your email.",
+    });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Internal server error. Please try again later." });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token, email, newPassword } = req.body;
+
+  if (!token || !email || !newPassword) {
+    return res.status(400).json({ message: "Token, email, and new password are required" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+
+  try {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }, // Token not expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user
+    user.password = hashedPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Password reset successful! You can now login with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// POST /api/auth/reset-password-with-current
+exports.resetPasswordWithCurrent = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id; // from auth middleware
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Current password is incorrect" });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 // ====================== REGISTER ======================
@@ -61,7 +206,7 @@ exports.register = async (req, res) => {
         to: email,
         subject:  'VibeMeet - Verify Your Email',
         html: `
-<div style="margin:0; padding:0; background: linear-gradient(135deg, #CDB4DB, #BDE0FE); font-family: 'Poppins', Arial, sans-serif;">
+<div style="margin:0; padding:0; background: linear-gradient(135deg, #f1e6f8, #d1e4f4); font-family: 'Poppins', Arial, sans-serif;">
   
   <div style="max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 20px; padding: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); text-align: center;">
     
@@ -276,5 +421,41 @@ exports.getMe = async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE ACCOUNT
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id; // Comes from auth middleware (protect route)
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Optional: Add confirmation check (e.g., require password)
+    const { password } = req.body;
+    if (password) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect password" });
+      }
+    }
+
+    // Delete user from database
+    await User.findByIdAndDelete(userId);
+
+    // TODO: Also delete related data (activities, chats, etc.) if needed
+    // await Activity.deleteMany({ user: userId });
+    // await Message.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
+
+    res.status(200).json({
+      message: "Your account has been successfully deleted. We're sorry to see you go."
+    });
+
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    res.status(500).json({ message: "Failed to delete account. Please try again later." });
   }
 };

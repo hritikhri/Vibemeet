@@ -7,7 +7,7 @@ import Avatar from '../components/common/Avatar';
 import Button from '../components/ui/Button';
 import FeedCard from '../components/feed/FeedCard';
 import api from '../lib/api';
-import { MessageCircle, UserPlus, Edit3, Users, Calendar, UserMinus } from 'lucide-react';
+import { MessageCircle, UserPlus, Edit3, Users, Calendar, UserMinus, Settings } from 'lucide-react';
 
 export default function Profile() {
   const { id } = useParams();
@@ -15,6 +15,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   const activitiesRef = useRef(null);
+  const modalRef = useRef(null);
 
   const [profileUser, setProfileUser] = useState(null);
   const [activities, setActivities] = useState([]);
@@ -27,6 +28,21 @@ export default function Profile() {
 
   const isOwnProfile = !id || id === currentUser?._id;
 
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        closeFriendsModal();
+      }
+    };
+
+    if (showFriendsModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFriendsModal]);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -35,12 +51,10 @@ export default function Profile() {
 
         setProfileUser(userData);
         setFriends(userData.friends || []);
-        console.log(userData.friends)  // i am getting the friends
 
         const { data: userActivities } = await api.get(`/users/${userId}/activities`);
         setActivities(userActivities || []);
 
-        // Determine friend status
         if (userData.friends?.some(f => f._id === currentUser?._id)) {
           setFriendStatus('friends');
         } else if (userData.friendRequests?.some(f => f._id === currentUser?._id)) {
@@ -78,7 +92,6 @@ export default function Profile() {
   const openFriendsModal = () => setShowFriendsModal(true);
   const closeFriendsModal = () => setShowFriendsModal(false);
 
-  // Unfriend Functions
   const openUnfriendConfirm = (friend) => {
     setSelectedFriend(friend);
     setShowUnfriendConfirm(true);
@@ -91,14 +104,11 @@ export default function Profile() {
 
   const handleUnfriend = async () => {
     if (!selectedFriend) return;
-
     try {
       await api.post(`/users/unfriend`, { friendId: selectedFriend._id });
 
-      // Update local friends list
       setFriends(prev => prev.filter(f => f._id !== selectedFriend._id));
 
-      // Update profileUser friends count
       if (profileUser) {
         setProfileUser(prev => ({
           ...prev,
@@ -126,79 +136,115 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Cover Photo */}
-      <div className="h-60 bg-gradient-to-br from-primary via-accent to-purple-600 relative">
-        <div className="absolute -bottom-12 left-6">
-          <div className="ring-4 ring-white rounded-full">
-            <Avatar src={profileUser?.avatar} size="lg" />
-          </div>
-        </div>
+      {/* Cover Photo - Instagram Style */}
+      <div className="h-15 md:h-24 bg-gradient-to-br from-primary via-accent to-purple-600 relative">
+        {/* Mobile Settings Button */}
+        {isOwnProfile && (
+          <button
+            onClick={() => navigate('/setting')}
+            className="absolute top-4 right-4 md:hidden z-10 bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-lg hover:bg-white transition-all active:scale-95"
+            aria-label="Settings"
+          >
+            <Settings size={22} className="text-gray-700" />
+          </button>
+        )}
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-20">
+      {/* Main Content - Narrower for Sidebar */}
+      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-10 md:pt-12">
         
-        {/* Name + Actions */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-semibold font-poppins tracking-tight text-gray-900">
-              {profileUser?.name}
-            </h1>
-            <p className="text-gray-500 text-lg mt-1">@{profileUser?.username}</p>
+        {/* Avatar + Name + Actions */}
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          {/* Avatar */}
+          <div className="flex-shrink-0 -mt-16 md:-mt-20 relative z-10">
+            <div className="rounded-full">
+              <Avatar src={profileUser?.avatar} size="xl" className="shadow-lg" />
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            {!isOwnProfile && (
-              <>
-                <Button
-                  onClick={handleFriendRequest}
-                  variant={friendStatus === 'friends' ? "secondary" : "primary"}
-                  disabled={friendStatus === 'friends' || friendStatus === 'sent'}
-                  className="flex items-center gap-2"
-                >
-                  {friendStatus === 'friends' ? (
-                    <>Friends ✓</>
-                  ) : friendStatus === 'sent' ? (
-                    <>Request Sent</>
-                  ) : (
-                    <>
-                      <UserPlus size={18} />
-                      Add Friend
-                    </>
-                  )}
-                </Button>
+          {/* Name, Username & Actions */}
+          <div className="flex-1 mt-2 md:mt-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-semibold font-poppins tracking-tight text-gray-900">
+                  {profileUser?.name}
+                </h1>
+                <p className="text-gray-500 text-lg">@{profileUser?.username}</p>
+              </div>
 
-                <Button 
-                  onClick={() => navigate(`/chat/private/${id}`)}
-                  className="flex items-center gap-2"
-                >
-                  <MessageCircle size={18} />
-                  Message
-                </Button>
-              </>
-            )}
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {!isOwnProfile && (
+                  <>
+                    <Button
+                      onClick={handleFriendRequest}
+                      variant={friendStatus === 'friends' ? "secondary" : "primary"}
+                      disabled={friendStatus === 'friends' || friendStatus === 'sent'}
+                      className="flex items-center gap-2"
+                    >
+                      {friendStatus === 'friends' ? (
+                        <>Friends ✓</>
+                      ) : friendStatus === 'sent' ? (
+                        <>Request Sent</>
+                      ) : (
+                        <>
+                          <UserPlus size={18} />
+                          Add Friend
+                        </>
+                      )}
+                    </Button>
 
-            {isOwnProfile && (
-              <Button 
-                variant="secondary" 
-                onClick={() => navigate('/edit-profile')}
-                className="flex items-center gap-2"
-              >
-                <Edit3 size={18} />
-                Edit Profile
-              </Button>
+                    <Button 
+                      onClick={() => navigate(`/chat/private/${id}`)}
+                      className="flex items-center gap-2"
+                    >
+                      <MessageCircle size={18} />
+                      Message
+                    </Button>
+                  </>
+                )}
+
+                {isOwnProfile && (
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => navigate('/setting')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-2xl font-medium shadow-sm transition-all"
+                  >
+                    <Edit3 size={18} />
+                    Edit Profile
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Bio - More attractive description */}
+            <div className="mt-6">
+              <p className="text-gray-700 leading-relaxed text-[15.5px] tracking-tight">
+                {profileUser?.bio || "No bio added yet."}
+              </p>
+            </div>
+
+            {/* Interests Section */}
+            {profileUser?.interests && profileUser.interests.length > 0 && (
+              <div className="mt-6">
+                <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-3">INTERESTS</p>
+                <div className="flex flex-wrap gap-2">
+                  {profileUser.interests.map((interest, index) => (
+                    <span 
+                      key={index}
+                      className="px-4 py-1.5 text-sm bg-white border border-gray-100 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors"
+                    >
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Bio */}
-        <div className="mt-8">
-          <p className="text-gray-700 leading-relaxed text-[15.5px]">
-            {profileUser?.bio || "No bio added yet."}
-          </p>
-        </div>
-
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 gap-6 mt-10">
+        {/* Stats Section - Instagram Style */}
+        <div className="grid grid-cols-2 gap-4 mt-10">
           <div 
             onClick={scrollToActivities}
             className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.985]"
@@ -233,7 +279,7 @@ export default function Profile() {
         {/* Activities Section */}
         <div ref={activitiesRef} className="mt-14 scroll-mt-24">
           <h3 className="font-semibold text-2xl mb-6 text-gray-900">
-            {isOwnProfile ? "My Activities" : `${profileUser?.name.split(' ')[0]}'s Activities`}
+            {isOwnProfile ? "My Activities" : `${profileUser?.name?.split(' ')[0]}'s Activities`}
           </h3>
 
           {activities.length === 0 ? (
@@ -263,7 +309,10 @@ export default function Profile() {
       {/* Friends List Modal */}
       {showFriendsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div 
+            ref={modalRef} 
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
             <div className="flex items-center justify-between px-6 py-5 border-b">
               <h2 className="text-2xl font-semibold">Friends ({friends.length})</h2>
               <button 

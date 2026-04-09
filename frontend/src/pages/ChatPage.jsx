@@ -6,6 +6,7 @@ import BottomNav from '../components/layout/BottomNav';
 import Avatar from '../components/common/Avatar';
 import api from '../lib/api';
 import { Search, MessageCircle } from 'lucide-react';
+import Button from '../components/ui/Button';
 
 export default function ChatPage() {
   const { user } = useAuthStore();
@@ -86,18 +87,18 @@ export default function ChatPage() {
           </div>
         ) : filteredFriends.length === 0 ? (
           <div className="text-center py-20">
-            <div className="mx-auto w-20 h-20 bg-soft rounded-full flex items-center justify-center mb-6">
-              <MessageCircle size={40} className="text-gray-400" />
-            </div>
-            <p className="text-gray-500 text-lg">
-              {searchTerm ? 'No matching friends found' : 'No conversations yet'}
-            </p>
-            <p className="text-sm text-gray-400 mt-2">
-              {searchTerm 
-                ? 'Try a different search term' 
-                : 'Add friends to start chatting'}
-            </p>
-          </div>
+  <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl flex items-center justify-center mb-6">
+    <MessageCircle size={42} className="text-purple-400" />
+  </div>
+  <p className="text-2xl font-semibold text-gray-900 mb-2">
+    {searchTerm ? 'No matching friends found' : 'No conversations yet'}
+  </p>
+  <p className="text-gray-500 max-w-xs mx-auto">
+    {searchTerm 
+      ? 'Try searching with a different name or username' 
+      : 'Add some friends to start chatting and sharing vibes'}
+  </p>
+</div>
         ) : (
           <div className="space-y-3">
             {filteredFriends.map((friend) => (

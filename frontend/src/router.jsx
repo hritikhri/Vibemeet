@@ -16,6 +16,9 @@ import EditProfile from './pages/EditProfile';
 import OtpVerification from './pages/OtpVerification';
 import PrivateChat from './pages/PrivateChat';
 import OurMainLayout from './components/ui/OurMainLayout';
+import SignupSuccess from './pages/SignupSuccess';
+import ForgotPassword from './pages/ForgotPassword';
+import SettingsPage from './pages/SettingsPage';
 
 
 export const router = createBrowserRouter([
@@ -23,7 +26,9 @@ export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Signup /> },
   { path: "/verify-otp", element: <OtpVerification /> },
-
+  { path:"/verify-otp-success", element: <SignupSuccess/> },
+  { path:"/forgot-password", element: <ForgotPassword/> },
+  { path:"/setting", element: <SettingsPage/> },
   { 
     path: "/home", 
     element: <ProtectedRoute><HomeFeed /></ProtectedRoute> 

@@ -4,6 +4,23 @@ const Activity = require("../models/Activity.js");
 const Notification = require("../models/Notification.js");
 
 
+// PUT /users/mood
+exports.mood =async (req, res) => {
+  const { mood } = req.body;
+  await User.findByIdAndUpdate(req.user._id, { mood });
+  res.json({ success: true });
+};
+
+exports.batch = async (req, res) => {
+  const { userIds } = req.body;
+  if (!userIds || !Array.isArray(userIds)) return res.status(400).json([]);
+
+  const users = await User.find({ _id: { $in: userIds } })
+    .select('name username avatar');   // Only needed fields
+
+  res.json(users);
+};
+
 // POST /users/unfriend
 exports.unfriend = async (req, res) => {
   try {

@@ -54,7 +54,7 @@ export default function OtpVerification() {
         email: state?.email,
         otp: finalOtp
       });
-      navigate('/login');
+      navigate('/verify-otp-success');
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid OTP');
     } finally {

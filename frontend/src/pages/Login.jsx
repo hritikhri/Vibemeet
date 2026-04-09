@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-white to-secondary/10 flex items-center justify-center px-3">
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-violet-100 flex items-center justify-center px-3">
       <div className="max-w-sm w-full bg-white rounded-2xl shadow-md p-6">
 
         {/* Branding */}

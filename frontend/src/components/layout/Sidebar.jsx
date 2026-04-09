@@ -31,11 +31,11 @@ export default function Sidebar() {
   };
 
   const handleSettings = () => {
-    navigate('/settings'); // Redirect to settings page
+    navigate('/setting'); // Redirect to settings page
   };
 
   return (
-    <div className="hidden sm:flex fixed left-4 top-1/2 -translate-y-1/2 z-50">
+    <div className="hidden sm:flex fixed left-4 top-1/2 -translate-y-1/2 z-500">
       {/* Sidebar Container */}
       <div className="group flex flex-col justify-between h-[65vh] bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-2xl
                       px-2 py-3 transition-all duration-300 w-16 hover:w-48">

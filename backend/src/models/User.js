@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String, default: 'https://i.pravatar.cc/300' },
   bio: { type: String, default: '' },
   interests: [{ type: String }],
-  mood: { type: String, enum: ['lonely', 'bored', 'social', 'exploring'], default: 'social' },
+  mood: { type: String, default: 'social' },
   location: { 
     lat: { type: Number, default: 28.6139 },
     lng: { type: Number, default: 77.2090 }
@@ -27,6 +27,14 @@ sentFriendRequests: [{
   type: mongoose.Schema.Types.ObjectId, 
   ref: 'User' 
 }],
+resetPasswordToken: {
+  type: String,
+  default: null
+},
+resetPasswordExpires: {
+  type: Date,
+  default: null
+}
 }, { timestamps: true });
 
 

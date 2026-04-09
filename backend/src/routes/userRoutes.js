@@ -10,7 +10,9 @@ router.get('/profile', protect, userController.getProfile);
 router.put('/profile', protect, userController.updateProfile);
 router.get('/suggested', protect, userController.getSuggestedUsers);
 router.get('/:id/activities', protect,userController.getUserActivities);
-
+// Example: POST /users/batch
+router.post('/batch', protect, userController.batch);
+router.put('/mood', protect, userController.mood);
 
 router.post('/unfriend', protect, userController.unfriend);
 router.post('/:id/friend-request', protect, userController.sendFriendRequest);

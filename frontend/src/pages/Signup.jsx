@@ -49,7 +49,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-white to-secondary/10 px-2">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-pink-100 to-violet-100  px-2">
       
       <div className="max-w-xs sm:max-w-sm w-full bg-white rounded-2xl shadow-md p-5">
 

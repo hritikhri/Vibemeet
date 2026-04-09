@@ -18,6 +18,11 @@ router.post('/login', [
 ], authController.login);
 
 router.post("/verify-otp",authController.verifyOtp)
+router.post("/forgot-password",authController.forgotPassword)
+router.post("/reset-password",authController.resetPassword)
+router.post("/reset-password-with-current",authController.resetPasswordWithCurrent)
+
+router.delete('/delete-account', protect, authController.deleteAccount);
 
 router.post('/google', authController.googleLogin);
 
