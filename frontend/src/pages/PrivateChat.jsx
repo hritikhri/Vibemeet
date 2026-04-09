@@ -1,15 +1,15 @@
 // frontend/src/pages/PrivateChat.jsx
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import api from '../lib/api';
 import BottomNav from '../components/layout/BottomNav';
 import Avatar from '../components/common/Avatar';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+let socket;
 
 export default function PrivateChat() {
   const { otherUserId } = useParams();
@@ -21,58 +21,45 @@ export default function PrivateChat() {
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [online, setOnline] = useState(false);
-  const [lastSeen, setLastSeen] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // ====================== SOCKET SETUP ======================
   useEffect(() => {
     if (!otherUserId || !user?._id) return;
 
-    const socket = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socketRef.current = socket;
+    socket = io('http://localhost:5000');
 
     socket.on('connect', () => {
-      setIsConnected(true);
-      socket.emit('authenticate', {
-        userId: user._id,
-        name: user.name,
-        avatar: user.avatar,
-      });
+      socket.emit('authenticate', user._id);
       socket.emit('joinPrivateChat', otherUserId);
       socket.emit('getOnlineStatus', otherUserId);
     });
 
-    socket.on('disconnect', () => setIsConnected(false));
-
     socket.on('newPrivateMessage', (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages(prev => {
+        if (prev.some(m => m._id === msg._id)) return prev;
+        return [...prev, msg];
+      });
     });
 
     socket.on('typing', ({ isTyping: status }) => {
       setIsTyping(status);
     });
 
-    socket.on('userOnlineStatus', ({ userId, isOnline, lastSeen: ls }) => {
-      if (userId === otherUserId) {
-        setOnline(isOnline);
-        if (!isOnline && ls) setLastSeen(ls);
-      }
+    socket.on('userOnlineStatus', ({ userId, isOnline }) => {
+      if (userId === otherUserId) setOnline(isOnline);
     });
 
-    // Load user info + chat history
+    // Load chat data (persists on refresh)
     const loadChatData = async () => {
       try {
         const [userRes, chatRes] = await Promise.all([
           api.get(`/users/${otherUserId}`),
-          api.get(`/chats/private/${otherUserId}`),
+          api.get(`/chats/private/${otherUserId}`)
         ]);
 
         setOtherUser(userRes.data);
@@ -85,59 +72,61 @@ export default function PrivateChat() {
     loadChatData();
 
     return () => {
-      socket.disconnect();
+      if (socket) socket.disconnect();
     };
   }, [otherUserId, user?._id]);
 
-  // Auto-scroll
+  // Auto scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send Message with Optimistic Update
+  // Send Text Message
   const sendMessage = () => {
-    if (!newMessage.trim() || !socketRef.current) return;
+    if (!newMessage.trim() || !socket) return;
 
-    const tempId = `temp-${Date.now()}`;
     const text = newMessage.trim();
-
-    // Optimistic message
-    const optimisticMsg = {
-      _id: tempId,
-      from: user._id,
-      text,
-      createdAt: new Date().toISOString(),
-      status: 'sending',
-      isMe: true,
-    };
-
-    setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage('');
 
-    socketRef.current.emit('sendPrivateMessage', { toUserId: otherUserId, text }, (response) => {
-      if (response?.success) {
-        setMessages((prev) =>
-          prev.map((msg) => (msg._id === tempId ? response.message : msg))
-        );
-      } else {
-        setMessages((prev) =>
-          prev.map((msg) => (msg._id === tempId ? { ...msg, status: 'failed' } : msg))
-        );
-      }
-    });
+    socket.emit('sendPrivateMessage', { toUserId: otherUserId, text });
   };
 
-  // Typing Handler
+  // Send Image
+  const sendImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const { data } = await api.post(`/chats/private/${otherUserId}/image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      // The backend will broadcast the image message via socket
+      console.log("Image uploaded:", data);
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      alert("Failed to send image");
+    } finally {
+      setUploading(false);
+      fileInputRef.current.value = ''; // Reset input
+    }
+  };
+
+  // Typing indicator
   const handleTyping = (e) => {
-    const value = e.target.value;
-    setNewMessage(value);
+    setNewMessage(e.target.value);
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
-    socketRef.current?.emit('typing', { toUserId: otherUserId, isTyping: true });
+    socket.emit('typing', { toUserId: otherUserId, isTyping: true });
 
     typingTimeoutRef.current = setTimeout(() => {
-      socketRef.current?.emit('typing', { toUserId: otherUserId, isTyping: false });
+      socket.emit('typing', { toUserId: otherUserId, isTyping: false });
     }, 1500);
   };
 
@@ -145,12 +134,9 @@ export default function PrivateChat() {
     if (otherUser) navigate(`/profile/${otherUser._id}`);
   };
 
-  const isMyMessage = (msg) => {
-    return msg.isMe || msg.from === user?._id || msg.from?._id === user?._id;
-  };
-
   return (
-    <div className="min-h-screen bg-background flex flex-col max-w-2xl mx-auto">
+    <div className="min-h-screen bg-background flex flex-col max-w-2xl mx-auto">   {/* Compact width for sidebar */}
+
       {/* Header */}
       <div className="sticky top-0 bg-white border-b z-50 px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate(-1)} className="p-2">
@@ -158,52 +144,55 @@ export default function PrivateChat() {
         </button>
 
         {otherUser && (
-          <div
+          <div 
             onClick={goToProfile}
             className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80"
           >
             <div className="relative">
               <Avatar src={otherUser.avatar} size="md" />
-              {online ? (
+              {online && (
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
-              ) : lastSeen && (
-                <div className="absolute bottom-0 right-0 w-4 h-4 bg-gray-400 rounded-full border-2 border-white" />
               )}
             </div>
-
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{otherUser.name}</p>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                @{otherUser.username || 'user'}
-                {isTyping ? (
-                  <span className="text-primary font-medium ml-2">• typing...</span>
-                ) : online ? (
-                  <span className="text-green-600 ml-2">• online</span>
-                ) : lastSeen ? (
-                  <span className="ml-2">
-                    • last seen {new Date(lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                ) : null}
+            <div>
+              <p className="font-medium">{otherUser.name}</p>
+              <p className="text-xs text-gray-500">
+                @{otherUser.username}
+                {isTyping && <span className="text-primary ml-1">• typing...</span>}
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Messages */}
+      {/* Messages Area */}
       <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-gray-50">
         {messages.map((msg, i) => {
-          const isMe = isMyMessage(msg);
+          const isMe = msg.from === user?._id || msg.isMe;
+
           return (
             <div key={msg._id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className="flex gap-3 max-w-[80%]">
+              <div className="flex gap-3 max-w-[75%]">
                 {!isMe && <Avatar src={otherUser?.avatar} size="sm" className="mt-1" />}
                 <div className={`px-5 py-3 rounded-3xl ${
-                  isMe ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none'
+                  isMe 
+                    ? 'bg-primary text-white rounded-br-none' 
+                    : 'bg-white shadow-sm rounded-bl-none'
                 }`}>
-                  <p className="text-[15px] leading-relaxed">{msg.text}</p>
+                  {msg.image ? (
+                    <img 
+                      src={msg.image} 
+                      alt="sent" 
+                      className="max-w-full rounded-2xl mb-2" 
+                    />
+                  ) : (
+                    <p className="text-[15px] leading-relaxed">{msg.text}</p>
+                  )}
                   <p className="text-[10px] mt-1 opacity-70 text-right">
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.createdAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
                   </p>
                 </div>
               </div>
@@ -213,7 +202,7 @@ export default function PrivateChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input Area with Image Upload */}
       <div className="p-4 border-t bg-white">
         <div className="flex gap-3">
           <input
@@ -224,7 +213,26 @@ export default function PrivateChat() {
             placeholder="Type a message..."
             className="flex-1 bg-gray-100 rounded-2xl px-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <Button onClick={sendMessage} disabled={!newMessage.trim()} className="px-6">
+
+          {/* Image Upload Button */}
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={sendImage}
+              className="hidden"
+            />
+            <div className="p-3 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all">
+              <ImageIcon size={22} className="text-gray-600" />
+            </div>
+          </label>
+
+          <Button 
+            onClick={sendMessage} 
+            disabled={!newMessage.trim()}
+            className="px-6"
+          >
             <Send size={20} />
           </Button>
         </div>
