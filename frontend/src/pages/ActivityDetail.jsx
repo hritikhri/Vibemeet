@@ -1,5 +1,5 @@
 // frontend/src/pages/ActivityDetail.jsx
-import { Heart, MessageCircle, Calendar, MapPin, ArrowLeft, Send, Users, X } from 'lucide-react';
+import { Heart, MessageCircle, Calendar, MapPin, ArrowLeft, Send, Users, X, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
@@ -29,10 +29,16 @@ export default function ActivityDetail() {
 
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState(new Set());
+  const [uploading, setUploading] = useState(false);
+
+  // New states for image preview (only added these)
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // ====================== SOCKET CONNECTION ======================
   useEffect(() => {
@@ -58,17 +64,14 @@ export default function ActivityDetail() {
 
     socket.on('disconnect', () => setIsConnected(false));
 
-    // Online Count
     socket.on('activityOnlineCount', ({ activityId, count }) => {
       if (activityId === id) setOnlineCount(count);
     });
 
-    // Realtime Online Users List
     socket.on('activityOnlineUsers', ({ activityId, users }) => {
       if (activityId === id) setOnlineUsersList(users);
     });
 
-    // New Message from group
     socket.on('newMessage', (msg) => {
       setMessages((prev) => {
         if (prev.some((m) => m._id === msg._id)) return prev;
@@ -76,7 +79,6 @@ export default function ActivityDetail() {
       });
     });
 
-    // Typing Indicator (from groupChat.js)
     socket.on('typing', ({ name, isTyping }) => {
       setTypingUsers((prev) => {
         const newSet = new Set(prev);
@@ -101,7 +103,6 @@ export default function ActivityDetail() {
       const { data } = await api.get(`/activities/${id}`);
       setActivity(data);
       setLiked(data.likes?.some((like) => like.toString() === user._id));
-      // console.log(data.messa)
       const normalized = (data.messages || []).map((msg) => ({
         ...msg,
         status: 'sent',
@@ -139,25 +140,32 @@ export default function ActivityDetail() {
     });
   };
 
-  // ====================== SEND MESSAGE ======================
+  // ====================== SEND MESSAGE (unchanged) ======================
   const sendMessage = () => {
-    if (!newMessage.trim() || !socketRef.current) return;
+    if ((!newMessage.trim() && !imagePreview) || !socketRef.current) return;
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const text = newMessage.trim();
-
+    
     const optimisticMsg = {
       _id: tempId,
       sender: { _id: user._id, name: user.name, avatar: user.avatar },
-      text,
+      text: newMessage.trim(),
+      image: imagePreview,           // include preview image
       createdAt: new Date().toISOString(),
       status: 'sending',
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage('');
+    setImagePreview(null);           // clear preview after send
+    setSelectedImage(null);
 
-    socketRef.current.emit('sendMessage', { activityId: id, text }, (response) => {
+    // Send text + image together
+    socketRef.current.emit('sendMessage', { 
+      activityId: id, 
+      text: newMessage.trim(),
+      image: imagePreview 
+    }, (response) => {
       if (response?.success) {
         setMessages((prev) =>
           prev.map((msg) => msg._id === tempId ? { ...response.message, status: 'sent' } : msg)
@@ -170,7 +178,27 @@ export default function ActivityDetail() {
     });
   };
 
-  // Typing Handler
+  // New: Handle Image Selection + Preview (only added this)
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImagePreview(event.target.result);   // base64 preview
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Remove preview
+  const removeImagePreview = () => {
+    setImagePreview(null);
+    setSelectedImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Typing Handler (unchanged)
   const handleTyping = () => {
     if (!socketRef.current) return;
 
@@ -199,7 +227,7 @@ export default function ActivityDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
+      {/* Header - unchanged */}
       <div className="sticky top-0 bg-white border-b z-50">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-xl">
@@ -225,12 +253,9 @@ export default function ActivityDetail() {
       </div>
 
       <div className="max-w-2xl mx-auto px-6 pt-6 space-y-6">
-        {/* Activity Info */}
+        {/* Activity Info - unchanged */}
         <div className="bg-white rounded-3xl p-6 shadow-soft">
-          <div
-            onClick={() => navigate(`/profile/${activity.creator._id}`)}
-            className="flex items-center gap-4 cursor-pointer mb-6 hover:opacity-80"
-          >
+          <div onClick={() => navigate(`/profile/${activity.creator._id}`)} className="flex items-center gap-4 cursor-pointer mb-6 hover:opacity-80">
             <Avatar src={activity.creator.avatar} size="lg" />
             <div>
               <p className="font-medium">{activity.creator.name}</p>
@@ -253,13 +278,9 @@ export default function ActivityDetail() {
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - unchanged */}
         <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => setLiked(!liked)}
-            className="flex-1 flex items-center justify-center gap-2"
-          >
+          <Button variant="secondary" onClick={() => setLiked(!liked)} className="flex-1 flex items-center justify-center gap-2">
             <Heart size={22} className={liked ? 'fill-red-500 text-red-500' : ''} />
             Like ({activity.likes?.length || 0})
           </Button>
@@ -280,7 +301,7 @@ export default function ActivityDetail() {
             )}
           </div>
 
-          {/* Messages Area */}
+          {/* Messages Area - unchanged (image already supported) */}
           <div className="flex-1 p-6 overflow-y-auto bg-gray-50 space-y-6">
             {messages.map((msg, index) => {
               const isMine = isMyMessage(msg);
@@ -302,7 +323,16 @@ export default function ActivityDetail() {
 
                       <div className={`px-5 py-3 rounded-3xl text-[15px] leading-relaxed
                         ${isMine ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none border border-gray-100'}`}>
-                        {msg.text}
+
+                        {msg.image ? (
+                          <img 
+                            src={msg.image} 
+                            alt="group image" 
+                            className="max-w-full rounded-2xl mb-2" 
+                          />
+                        ) : (
+                          <p>{msg.text}</p>
+                        )}
                       </div>
 
                       <p className={`text-[10px] text-gray-400 mt-1 px-2 ${isMine ? 'text-right' : ''}`}>
@@ -323,8 +353,26 @@ export default function ActivityDetail() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
+          {/* Input Area with Image Preview */}
           <div className="p-4 border-t bg-white">
+            {/* Image Preview (shown above input when selected) */}
+            {imagePreview && (
+              <div className="mb-3 bg-gray-100 p-3 rounded-2xl flex items-center gap-3">
+                <img 
+                  src={imagePreview} 
+                  alt="preview" 
+                  className="w-16 h-16 object-cover rounded-xl" 
+                />
+                <div className="flex-1 text-sm text-gray-600">Image selected</div>
+                <button 
+                  onClick={removeImagePreview}
+                  className="p-1 hover:bg-gray-200 rounded-full"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <input
                 type="text"
@@ -337,7 +385,23 @@ export default function ActivityDetail() {
                 placeholder="Type a message... (Enter to send)"
                 className="flex-1 bg-gray-100 rounded-2xl px-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary text-base"
               />
-              <Button onClick={sendMessage} disabled={!newMessage.trim()} className="px-6">
+
+              {/* Image Upload Button */}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <div className={`p-3.5 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all ${uploading ? 'opacity-50' : ''}`}>
+                  <ImageIcon size={22} className="text-gray-600" />
+                </div>
+              </label>
+
+              <Button onClick={sendMessage} disabled={!newMessage.trim() && !imagePreview} className="px-6">
                 <Send size={20} />
               </Button>
             </div>
@@ -345,7 +409,7 @@ export default function ActivityDetail() {
         </div>
       </div>
 
-      {/* Online Users Modal */}
+      {/* Online Users Modal - unchanged */}
       {showOnlineModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-2xl">

@@ -4,7 +4,7 @@ const { createNotification } = require("../controllers/notificationController.js
 
 const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
 
-  // Join Private Chat Room
+  // Join Private Chat Room (unchanged)
   socket.on("joinPrivateChat", (otherUserId) => {
     const currentUser = onlineUsers.get(socket.id);
     if (!currentUser?.userId || !otherUserId) return;
@@ -14,7 +14,7 @@ const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
     console.log(`🔗 Private room joined: ${room} by ${currentUser.userId}`);
   });
 
-  // Send Private Message
+  // ====================== SEND TEXT MESSAGE ======================
   socket.on("sendPrivateMessage", async ({ toUserId, text }, callback) => {
     try {
       const fromUser = onlineUsers.get(socket.id);
@@ -27,6 +27,7 @@ const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
         to: toUserId,
         text: text.trim(),
         isRead: false,
+        delivered: false,
       });
 
       const messageToSend = {
@@ -36,13 +37,14 @@ const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
         text: savedMessage.text,
         createdAt: savedMessage.createdAt,
         isRead: false,
+        delivered: false,
         status: "sent",
       };
 
       const room = `private_${Math.min(fromUser.userId, toUserId)}_${Math.max(fromUser.userId, toUserId)}`;
       io.to(room).emit("newPrivateMessage", messageToSend);
 
-      // Create notification for receiver
+      // Notification for receiver
       await createNotification(
         toUserId,
         "message",
@@ -58,7 +60,58 @@ const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
     }
   });
 
-  // Typing Indicator
+  // ====================== MARK AS DELIVERED (Grey Double Tick) ======================
+  socket.on("markMessageAsDelivered", async ({ messageId }) => {
+    try {
+      const currentUser = onlineUsers.get(socket.id);
+      if (!currentUser) return;
+
+      const updated = await PrivateMessage.findOneAndUpdate(
+        { _id: messageId, to: currentUser.userId, delivered: false },
+        { delivered: true },
+        { new: true }
+      );
+
+      if (updated) {
+        // Notify sender
+        io.to(`user_${updated.from}`).emit("messageDelivered", {
+          messageId,
+          delivered: true
+        });
+      }
+    } catch (err) {
+      console.error("Mark as delivered error:", err);
+    }
+  });
+
+  // ====================== MARK AS READ (Blue Double Tick) ======================
+  socket.on("markMessageAsRead", async ({ messageId, fromUserId }) => {
+    try {
+      const currentUser = onlineUsers.get(socket.id);
+      if (!currentUser) return;
+
+      const updated = await PrivateMessage.findOneAndUpdate(
+        { _id: messageId, from: fromUserId, to: currentUser.userId, isRead: false },
+        { 
+          isRead: true,
+          readAt: new Date()
+        },
+        { new: true }
+      );
+
+      if (updated) {
+        io.to(`user_${fromUserId}`).emit("messageRead", {
+          messageId,
+          isRead: true,
+          readAt: updated.readAt
+        });
+      }
+    } catch (err) {
+      console.error("Mark as read error:", err);
+    }
+  });
+
+  // Typing Indicator (unchanged)
   socket.on("typing", ({ toUserId, isTyping }) => {
     const fromUser = onlineUsers.get(socket.id);
     if (!fromUser || !toUserId) return;
@@ -68,27 +121,6 @@ const registerPrivateChatHandlers = (io, socket, { onlineUsers }) => {
       fromUserId: fromUser.userId, 
       isTyping 
     });
-  });
-
-  // Mark Message as Read
-  socket.on("markMessageAsRead", async ({ messageId, fromUserId }) => {
-    try {
-      const currentUser = onlineUsers.get(socket.id);
-      if (!currentUser) return;
-
-      await PrivateMessage.updateOne(
-        { _id: messageId, from: fromUserId, to: currentUser.userId },
-        { isRead: true }
-      );
-
-      io.to(`user_${fromUserId}`).emit("messageRead", {
-        messageId,
-        readBy: currentUser.userId,
-        readAt: new Date(),
-      });
-    } catch (err) {
-      console.error("Mark as read error:", err);
-    }
   });
 };
 

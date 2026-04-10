@@ -1,13 +1,17 @@
 const express =require ('express');
 const { protect }= require( '../middleware/auth.js');
 const userController= require( '../controllers/userController.js');
+const upload = require('../config/multer.js');
 
 const router = express.Router();
 
 router.get('/me', protect, userController.getMe);
 router.get('/:id', protect, userController.getUserById);
 router.get('/profile', protect, userController.getProfile);
+
 router.put('/profile', protect, userController.updateProfile);
+router.post('/avatar', protect, upload.single('avatar'),userController.updateAvatar);
+
 router.get('/suggested', protect, userController.getSuggestedUsers);
 router.get('/:id/activities', protect,userController.getUserActivities);
 // Example: POST /users/batch

@@ -33,7 +33,7 @@ const registerGroupChatHandlers = (io, socket, { onlineUsers, sendActivityOnline
     if (!senderInfo || !activityId || !text?.trim()) {
       return callback?.({ success: false, error: "Invalid data" });
     }
-
+    console.log(senderInfo)
     try {
       const newMessage = {
         sender: senderInfo.userId,

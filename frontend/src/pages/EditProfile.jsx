@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { Camera, Save, ArrowLeft } from 'lucide-react';
+import { Camera, Save, ArrowLeft, Loader2 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import api from '../lib/api';
 
 export default function EditProfile() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();   // Important: use setUser to update store
 
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -14,9 +14,11 @@ export default function EditProfile() {
     mood: user?.mood || 'social',
   });
 
-  const [avatar, setAvatar] = useState(user?.avatar || null);
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatar || null);
+  const [selectedFile, setSelectedFile] = useState(null);   // Store actual file for upload
   const [isSaving, setIsSaving] = useState(false);
-  const [editingField, setEditingField] = useState(null); // 'name', 'bio', 'interests', 'mood'
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editingField, setEditingField] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -25,18 +27,22 @@ export default function EditProfile() {
     fileInputRef.current.click();
   };
 
+  // Handle File Selection + Preview
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAvatar(event.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file || !file.type.startsWith('image/')) return;
+
+    setSelectedFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatarPreview(event.target.result);
+    };
+    reader.readAsDataURL(file);
   };
 
-  // Toggle Edit Mode for a field
+  // Toggle Edit Mode
   const toggleEdit = (field) => {
     setEditingField(editingField === field ? null : field);
   };
@@ -45,22 +51,58 @@ export default function EditProfile() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ====================== UPLOAD AVATAR TO CLOUDINARY ======================
+  const uploadAvatar = async (file) => {
+    if (!file) return user?.avatar;
+
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const res = await api.post('/users/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      return res.data.avatar;   // Cloudinary URL returned from backend
+    } catch (error) {
+      console.error("Avatar upload failed:", error);
+      alert("Failed to upload avatar. Please try again.");
+      return user?.avatar;
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // ====================== SAVE PROFILE ======================
   const handleSave = async () => {
     setIsSaving(true);
+
     try {
+      let avatarUrl = user?.avatar;
+
+      // Upload new avatar if selected
+      if (selectedFile) {
+        avatarUrl = await uploadAvatar(selectedFile);
+      }
+
       const payload = {
         name: form.name,
         bio: form.bio,
         interests: form.interests.split(',').map(i => i.trim()).filter(Boolean),
         mood: form.mood,
-        // avatar can be handled separately in real app
+        avatar: avatarUrl,           // Send new avatar URL
       };
 
-      await api.put('/users/profile', payload);
-      
+      const res = await api.put('/users/profile', payload);
+
+      // Update auth store
+      setUser(res.data);
+
       alert('Profile updated successfully ✨');
       window.location.href = '/profile';
     } catch (error) {
+      console.error(error);
       alert('Failed to update profile');
     } finally {
       setIsSaving(false);
@@ -68,8 +110,8 @@ export default function EditProfile() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         
         {/* Back Button */}
         <button 
@@ -89,8 +131,12 @@ export default function EditProfile() {
               className="absolute -bottom-14 left-8 w-32 h-32 bg-white p-1.5 rounded-3xl shadow-xl cursor-pointer hover:ring-4 hover:ring-indigo-200 transition-all group"
             >
               <div className="w-full h-full rounded-3xl overflow-hidden relative">
-                {avatar ? (
-                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {avatarPreview ? (
+                  <img 
+                    src={avatarPreview} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
                     <span className="text-6xl">👋</span>
@@ -99,7 +145,11 @@ export default function EditProfile() {
                 
                 {/* Camera Overlay */}
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl">
-                  <Camera className="w-8 h-8 text-white" />
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-white" />
+                  )}
                 </div>
               </div>
             </div>

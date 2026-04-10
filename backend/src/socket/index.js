@@ -21,7 +21,7 @@ exports.setupSocket = (io) => {
 
       socket.join(`user_${userId}`);
       userLastSeen.delete(userId);
-
+      socket.join(`user_${userId}`);   // For targeted delivery/read events
       console.log(`✅ User ${userId} (${name}) is now ONLINE`);
 
       io.emit("userOnlineStatus", { userId, isOnline: true });

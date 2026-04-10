@@ -158,7 +158,7 @@ export default function Profile() {
           {/* Avatar */}
           <div className="flex-shrink-0 -mt-16 md:-mt-20 relative z-10">
             <div className="rounded-full">
-              <Avatar src={profileUser?.avatar} size="xl" className="shadow-lg" />
+              <Avatar src={profileUser?.avatar} size="xl" className="" />
             </div>
           </div>
 

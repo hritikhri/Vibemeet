@@ -23,7 +23,10 @@ const activitySchema = new mongoose.Schema({
   comments: [commentSchema],
   messages: [{
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  text: { type: String, required: true },
+  text: { type: String },
+  image:{
+    type:String,
+  },
   createdAt: { type: Date, default: Date.now },
   seenBy: [{ 
     type: mongoose.Schema.Types.ObjectId, 

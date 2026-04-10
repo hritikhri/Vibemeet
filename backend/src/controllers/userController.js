@@ -2,7 +2,78 @@ const User = require("../models/User.js");
 const haversineDistance = require("../utils/haversine.js");
 const Activity = require("../models/Activity.js");
 const Notification = require("../models/Notification.js");
+const cloudinary = require('../config/cloudinary.js');
+const streamifier = require('streamifier');
 
+// ====================== UPLOAD AVATAR ======================
+exports.updateAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Upload to Cloudinary
+    const uploadToCloudinary = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'vibemeet/avatars',
+            resource_type: 'image',
+            transformation: [{ width: 400, height: 400, crop: 'fill' }],
+          },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+    };
+
+    const result = await uploadToCloudinary();
+    const avatarUrl = result.secure_url;
+
+    // Update user in database
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: avatarUrl },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      avatar: avatarUrl,
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error("Avatar upload error:", error);
+    res.status(500).json({ message: 'Failed to upload avatar' });
+  }
+};
+
+// ====================== UPDATE PROFILE ======================
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, bio, interests, mood, avatar } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { 
+        name, 
+        bio, 
+        interests, 
+        mood,
+        ...(avatar && { avatar })   // Update avatar if provided
+      },
+      { new: true }
+    );
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // PUT /users/mood
 exports.mood =async (req, res) => {
@@ -125,20 +196,6 @@ exports.getProfile = async (req, res) => {
     const user = await User.findById(req.user.id)
       .populate("friends", "name username avatar")
       .populate("joinedActivities", "title");
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.updateProfile = async (req, res) => {
-  try {
-    const { name, bio, interests, mood } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { name, bio, interests, mood },
-      { new: true },
-    );
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });

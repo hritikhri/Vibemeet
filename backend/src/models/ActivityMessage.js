@@ -15,6 +15,9 @@ const activityMessageSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  image:{
+    type:String,
   }
 }, {
   timestamps: true   // automatically adds createdAt and updatedAt

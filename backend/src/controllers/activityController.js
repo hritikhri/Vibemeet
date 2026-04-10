@@ -1,8 +1,11 @@
 const Activity = require("../models/Activity.js");
 const User = require("../models/User.js");
 const Notification= require( '../models/Notification.js');
+const cloudinary =require ('../config/cloudinary.js');
+const streamifier= require( 'streamifier');
 const {calculateFeedScore,calculateExploreScore,} = require("../utils/algorithms.js");
 const haversineDistance = require("../utils/haversine.js");
+
 
 exports.createActivity = async (req, res) => {
   try {
@@ -209,7 +212,7 @@ exports.addMessage = async (req, res) => {
       text: req.body.text,
       createdAt: new Date(),
     };
-
+    conosle.log(message)
     activity.messages.push(message);
     await activity.save();
 
@@ -282,5 +285,85 @@ exports.deleteActivity = async (req, res) => {
     res.json({ message: 'Activity deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Upload Image to Cloudinary for Group Chat (Activity)
+exports.uploadActivityImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+
+    const activityId = req.params.id;
+    const senderId = req.user.id;
+
+    // Upload to Cloudinary
+    const uploadToCloudinary = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'vibemeet/activities',
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+    };
+
+    const cloudinaryResult = await uploadToCloudinary();
+    const imageUrl = cloudinaryResult.secure_url;
+
+    // Create message object matching your schema
+    const newMessage = {
+      sender: senderId,
+      text: '',           // Empty text for image message
+      image: imageUrl,
+      createdAt: new Date(),
+      seenBy: [senderId]
+    };
+
+    // Push to activity.messages (your schema supports image)
+    const activity = await Activity.findByIdAndUpdate(
+      activityId,
+      { $push: { messages: newMessage } },
+      { new: true }
+    );
+
+    if (!activity) {
+      return res.status(404).json({ message: 'Activity not found' });
+    }
+
+    // Prepare message for socket broadcast
+    const messageToSend = {
+      _id: activity.messages[activity.messages.length - 1]._id,
+      sender: {
+        _id: senderId,
+        // You can populate more if needed, but for now senderId is enough
+      },
+      image: imageUrl,
+      createdAt: newMessage.createdAt,
+      seenBy: [senderId]
+    };
+
+    // Broadcast to all in the activity room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`activity_${activityId}`).emit('newMessage', messageToSend);
+    }
+
+    res.json({
+      success: true,
+      message: 'Image sent successfully in group chat',
+      imageUrl
+    });
+
+  } catch (error) {
+    console.error("Cloudinary group image upload error:", error);
+    res.status(500).json({ message: 'Failed to upload image' });
   }
 };
