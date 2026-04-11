@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: { 
     type: String, 
-    enum: ['join_request', 'invite', 'request_accepted','friend_request', 'message','like'], 
+    enum: ['join_request', 'invite', 'request_accepted','friend_request', 'message','like','follow'], 
     required: true 
   },
   requireUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

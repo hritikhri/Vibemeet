@@ -26,6 +26,7 @@ export default function ChatPage() {
       // Safely set friends array
       const friendsList = Array.isArray(data?.friends) ? data.friends : [];
       setFriends(friendsList);
+      console.log(friendsList)
     } catch (err) {
       console.error("Failed to load friends:", err);
       setFriends([]);

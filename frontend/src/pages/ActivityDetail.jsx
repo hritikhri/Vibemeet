@@ -31,7 +31,7 @@ export default function ActivityDetail() {
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [uploading, setUploading] = useState(false);
 
-  // New states for image preview (only added these)
+  // Image preview states
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -39,6 +39,7 @@ export default function ActivityDetail() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   // ====================== SOCKET CONNECTION ======================
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function ActivityDetail() {
         return newSet;
       });
     });
-                                  
+
     return () => {
       socket.disconnect();
     };
@@ -125,6 +126,54 @@ export default function ActivityDetail() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // ====================== WHATSAPP-STYLE DATE LABEL ======================
+  const getDateLabel = (dateStr) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const msgDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+
+    if (msgDateOnly.getTime() === todayOnly.getTime()) return "Today";
+    if (msgDateOnly.getTime() === yesterdayOnly.getTime()) return "Yesterday";
+
+    const diffTime = Math.abs(todayOnly - msgDateOnly);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // This week → Show day name
+    if (diffDays <= 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+
+    // This year → "22 January"
+    if (date.getFullYear() === today.getFullYear()) {
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'long'
+      });
+    }
+
+    // Older messages → "22 January 2025"
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Group messages by date
+  const groupedMessages = messages.reduce((groups, msg) => {
+    const dateKey = new Date(msg.createdAt).toDateString();
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(msg);
+    return groups;
+  }, {});
+
+  const sortedDateKeys = Object.keys(groupedMessages).sort((a, b) => new Date(b) - new Date(a));
+
   // ====================== HELPERS ======================
   const isMyMessage = (msg) => {
     if (!msg || !user) return false;
@@ -140,7 +189,7 @@ export default function ActivityDetail() {
     });
   };
 
-  // ====================== SEND MESSAGE (unchanged) ======================
+  // ====================== SEND MESSAGE ======================
   const sendMessage = () => {
     if ((!newMessage.trim() && !imagePreview) || !socketRef.current) return;
 
@@ -150,17 +199,16 @@ export default function ActivityDetail() {
       _id: tempId,
       sender: { _id: user._id, name: user.name, avatar: user.avatar },
       text: newMessage.trim(),
-      image: imagePreview,           // include preview image
+      image: imagePreview,
       createdAt: new Date().toISOString(),
       status: 'sending',
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage('');
-    setImagePreview(null);           // clear preview after send
+    setImagePreview(null);
     setSelectedImage(null);
 
-    // Send text + image together
     socketRef.current.emit('sendMessage', { 
       activityId: id, 
       text: newMessage.trim(),
@@ -178,7 +226,6 @@ export default function ActivityDetail() {
     });
   };
 
-  // New: Handle Image Selection + Preview (only added this)
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -186,19 +233,17 @@ export default function ActivityDetail() {
     setSelectedImage(file);
     const reader = new FileReader();
     reader.onload = (event) => {
-      setImagePreview(event.target.result);   // base64 preview
+      setImagePreview(event.target.result);
     };
     reader.readAsDataURL(file);
   };
 
-  // Remove preview
   const removeImagePreview = () => {
     setImagePreview(null);
     setSelectedImage(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Typing Handler (unchanged)
   const handleTyping = () => {
     if (!socketRef.current) return;
 
@@ -227,7 +272,7 @@ export default function ActivityDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header - unchanged */}
+      {/* Header */}
       <div className="sticky top-0 bg-white border-b z-50">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-xl">
@@ -253,7 +298,7 @@ export default function ActivityDetail() {
       </div>
 
       <div className="max-w-2xl mx-auto px-6 pt-6 space-y-6">
-        {/* Activity Info - unchanged */}
+        {/* Activity Info */}
         <div className="bg-white rounded-3xl p-6 shadow-soft">
           <div onClick={() => navigate(`/profile/${activity.creator._id}`)} className="flex items-center gap-4 cursor-pointer mb-6 hover:opacity-80">
             <Avatar src={activity.creator.avatar} size="lg" />
@@ -278,7 +323,7 @@ export default function ActivityDetail() {
           </div>
         </div>
 
-        {/* Action Buttons - unchanged */}
+        {/* Action Buttons */}
         <div className="flex gap-3">
           <Button variant="secondary" onClick={() => setLiked(!liked)} className="flex-1 flex items-center justify-center gap-2">
             <Heart size={22} className={liked ? 'fill-red-500 text-red-500' : ''} />
@@ -301,61 +346,77 @@ export default function ActivityDetail() {
             )}
           </div>
 
-          {/* Messages Area - unchanged (image already supported) */}
-          <div className="flex-1 p-6 overflow-y-auto bg-gray-50 space-y-6">
-            {messages.map((msg, index) => {
-              const isMine = isMyMessage(msg);
-              const key = msg._id || `msg-${index}`;
-
-              return (
-                <div key={key} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex gap-3 max-w-[78%] ${isMine ? 'flex-row-reverse' : ''}`}>
-                    {!isMine && (
-                      <div className="flex-shrink-0 pt-1">
-                        <Avatar src={msg.sender?.avatar} size="sm" />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col">
-                      {!isMine && msg.sender?.name && (
-                        <p className="text-xs text-gray-500 mb-1 ml-1">{msg.sender.name}</p>
-                      )}
-
-                      <div className={`px-5 py-3 rounded-3xl text-[15px] leading-relaxed
-                        ${isMine ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none border border-gray-100'}`}>
-
-                        {msg.image ? (
-                          <img 
-                            src={msg.image} 
-                            alt="group image" 
-                            className="max-w-full rounded-2xl mb-2" 
-                          />
-                        ) : (
-                          <p>{msg.text}</p>
-                        )}
-                      </div>
-
-                      <p className={`text-[10px] text-gray-400 mt-1 px-2 ${isMine ? 'text-right' : ''}`}>
-                        {formatTime(msg.createdAt)}
-                        {isMine && (
-                          <span className="ml-2">
-                            {msg.status === 'sending' && '⋯'}
-                            {msg.status === 'sent' && '✓'}
-                            {msg.status === 'failed' && '✕'}
-                          </span>
-                        )}
-                      </p>
-                    </div>
+          {/* Messages Area with Sticky Date Headers */}
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 p-6 overflow-y-auto bg-gray-50 relative"
+          >
+            {sortedDateKeys.map((dateKey) => (
+              <div key={dateKey} className="mb-8">
+                {/* Sticky Date Header */}
+                <div className="sticky top-0 z-20 flex justify-center py-3 bg-gray-50">
+                  <div className="bg-white px-6 py-1.5 rounded-full text-sm font-medium text-gray-500 shadow-sm border border-gray-100">
+                    {getDateLabel(dateKey)}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Messages for this date */}
+                <div className="space-y-6 pt-2">
+                  {groupedMessages[dateKey].map((msg, index) => {
+                    const isMine = isMyMessage(msg);
+                    const key = msg._id || `msg-${dateKey}-${index}`;
+
+                    return (
+                      <div key={key} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`flex gap-3 max-w-[78%] ${isMine ? 'flex-row-reverse' : ''}`}>
+                          {!isMine && (
+                            <div className="flex-shrink-0 pt-1">
+                              <Avatar src={msg.sender?.avatar} size="sm" />
+                            </div>
+                          )}
+
+                          <div className="flex flex-col">
+                            {!isMine && msg.sender?.name && (
+                              <p className="text-xs text-gray-500 mb-1 ml-1">{msg.sender.name}</p>
+                            )}
+
+                            <div className={`px-5 py-3 rounded-3xl text-[15px] leading-relaxed
+                              ${isMine ? 'bg-primary text-white rounded-br-none' : 'bg-white shadow-sm rounded-bl-none border border-gray-100'}`}>
+
+                              {msg.image ? (
+                                <img 
+                                  src={msg.image} 
+                                  alt="group image" 
+                                  className="max-w-full rounded-2xl mb-2" 
+                                />
+                              ) : (
+                                <p>{msg.text}</p>
+                              )}
+                            </div>
+
+                            <p className={`text-[10px] text-gray-400 mt-1 px-2 ${isMine ? 'text-right' : ''}`}>
+                              {formatTime(msg.createdAt)}
+                              {isMine && (
+                                <span className="ml-2">
+                                  {msg.status === 'sending' && '⋯'}
+                                  {msg.status === 'sent' && '✓'}
+                                  {msg.status === 'failed' && '✕'}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area with Image Preview */}
+          {/* Input Area */}
           <div className="p-4 border-t bg-white">
-            {/* Image Preview (shown above input when selected) */}
             {imagePreview && (
               <div className="mb-3 bg-gray-100 p-3 rounded-2xl flex items-center gap-3">
                 <img 
@@ -386,7 +447,6 @@ export default function ActivityDetail() {
                 className="flex-1 bg-gray-100 rounded-2xl px-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-primary text-base"
               />
 
-              {/* Image Upload Button */}
               <label className="cursor-pointer">
                 <input
                   type="file"
@@ -409,7 +469,7 @@ export default function ActivityDetail() {
         </div>
       </div>
 
-      {/* Online Users Modal - unchanged */}
+      {/* Online Users Modal */}
       {showOnlineModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-2xl">

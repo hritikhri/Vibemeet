@@ -1,34 +1,146 @@
 const cloudinary =require ('../config/cloudinary.js');
 const streamifier =require( 'streamifier');
 const PrivateMessage = require('../models/PrivateMessage.js');
+const mongoose = require('mongoose');
 
-exports.getPrivateChat = async (req, res) => {
+/**
+ * GET /chats
+ * Returns all conversations the current user has participated in,
+ * sorted by most recent message, with last message preview + unread count.
+ */
+exports.getMyChats = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const currentUserId = req.user.id;
-    // console.log(userId,currentUserId)
-    console.log(`Fetching chat between ${currentUserId} and ${userId}`);
+    const currentUserId = new mongoose.Types.ObjectId(req.user.id);
 
-    const messages = await PrivateMessage.find({
-      $or: [
-        { from: currentUserId, to: userId },
-        { from: userId, to: currentUserId }
-      ]
-    })
-    .sort({ createdAt: 1 })
-    .populate('from', 'name avatar username')
-    .populate('to', 'name avatar username');
+    const conversations = await PrivateMessage.aggregate([
+      // 1. Only messages involving the current user
+      {
+        $match: {
+          $or: [{ from: currentUserId }, { to: currentUserId }],
+        },
+      },
 
-    console.log(`Found ${messages.length} messages`);
-    // console.log(messages)
-    res.json({ messages });
+      // 2. Group by the "conversation partner" (the other person)
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ['$from', currentUserId] },
+              '$to',    // I sent → other person is `to`
+              '$from',  // I received → other person is `from`
+            ],
+          },
+          lastMessage: { $last: '$$ROOT' },   // most recent message in this group
+          lastMessageAt: { $max: '$createdAt' },
+          // Count messages sent TO me that I haven't read
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$to', currentUserId] },
+                    { $eq: ['$read', false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+
+      // 3. Sort by most recent first
+      { $sort: { lastMessageAt: -1 } },
+
+      // 4. Populate the other user's details
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'otherUser',
+        },
+      },
+      { $unwind: '$otherUser' },
+
+      // 5. Populate sender of last message (for "You: ..." prefix)
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'lastMessage.from',
+          foreignField: '_id',
+          as: 'lastMessageSender',
+        },
+      },
+      { $unwind: { path: '$lastMessageSender', preserveNullAndEmptyArrays: true } },
+
+      // 6. Shape the output
+      {
+        $project: {
+          _id: 0,
+          otherUser: {
+            _id: '$otherUser._id',
+            name: '$otherUser.name',
+            username: '$otherUser.username',
+            avatar: '$otherUser.avatar',
+          },
+          lastMessage: {
+            text: '$lastMessage.text',
+            image: '$lastMessage.image',
+            createdAt: '$lastMessage.createdAt',
+            fromMe: { $eq: ['$lastMessage.from', currentUserId] },
+          },
+          lastMessageAt: 1,
+          unreadCount: 1,
+        },
+      },
+    ]);
+
+    res.json(conversations);
   } catch (error) {
-    console.error("Error in getPrivateChat:", error);
+    console.error('getMyChats error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-exports.createMessage= async (req, res) => {
+/**
+ * GET /chats/private/:userId
+ * Returns all messages between currentUser and userId, marks received ones as read.
+ */
+exports.getPrivateChat = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user.id;
+
+    const messages = await PrivateMessage.find({
+      $or: [
+        { from: currentUserId, to: userId },
+        { from: userId, to: currentUserId },
+      ],
+    })
+      .sort({ createdAt: 1 })
+      .populate('from', 'name avatar username')
+      .populate('to', 'name avatar username');
+
+    // Mark all received messages as read
+    await PrivateMessage.updateMany(
+      { from: userId, to: currentUserId, read: false },
+      { $set: { read: true } }
+    );
+
+    res.json({ messages });
+  } catch (error) {
+    console.error('getPrivateChat error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * POST /chats/private/:userId
+ * HTTP fallback to create a message (socket is preferred).
+ */
+exports.createMessage = async (req, res) => {
   try {
     const { text } = req.body;
     const fromUserId = req.user.id;
@@ -37,11 +149,14 @@ exports.createMessage= async (req, res) => {
     const message = await PrivateMessage.create({
       from: fromUserId,
       to: toUserId,
-      text
+      text,
+      read: false,
     });
-    console.log(message)
-    res.json({ message });
+
+    const populated = await message.populate('from', 'name avatar username');
+    res.json({ message: populated });
   } catch (error) {
+    console.error('createMessage error:', error);
     res.status(500).json({ message: error.message });
   }
 };

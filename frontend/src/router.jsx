@@ -43,7 +43,7 @@ export const router = createBrowserRouter([
   },
   { 
     path: "/chat", 
-    element: <ProtectedRoute><OurMainLayout><ChatPage /></OurMainLayout></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><PrivateChat /></OurMainLayout></ProtectedRoute> 
   },
   { 
     path: "/notifications", 

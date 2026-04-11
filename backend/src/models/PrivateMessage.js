@@ -12,7 +12,7 @@ const privateMessageSchema = new mongoose.Schema({
     required: true 
   },
   text: { 
-    type: String 
+    type: String, default:"",
   },
   image: {
     type: String
@@ -34,7 +34,9 @@ const privateMessageSchema = new mongoose.Schema({
   }
 });
 
-// Index for faster queries
+// Index for fast conversation lookups
 privateMessageSchema.index({ from: 1, to: 1, createdAt: -1 });
+privateMessageSchema.index({ to: 1, read: 1 });
+
 
 module.exports = mongoose.model('PrivateMessage', privateMessageSchema);

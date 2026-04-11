@@ -17,15 +17,18 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: true },       // Google users are auto-verified
   otp: String,
   otpExpiry: Date,
-  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default:[] }],
+   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
+  followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
   joinedActivities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
   friendRequests: [{ 
   type: mongoose.Schema.Types.ObjectId, 
-  ref: 'User' 
+  ref: 'User',default:[],
 }],
 sentFriendRequests: [{ 
   type: mongoose.Schema.Types.ObjectId, 
-  ref: 'User' 
+  ref: 'User',
+  default:[],
 }],
 resetPasswordToken: {
   type: String,
