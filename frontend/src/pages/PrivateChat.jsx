@@ -242,7 +242,7 @@ export default function PrivateChat() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen bg-background pl -10 flex overflow-hidden">
 
       {/* ── LEFT SIDEBAR — Conversation List ── */}
       <div className={`
@@ -252,7 +252,7 @@ export default function PrivateChat() {
       `}>
         {/* Header */}
         <div className="px-6 py-5 border-b">
-          <h1 className="text-2xl font-bold font-poppins text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
+          <h1 className="text-2xl font-bold  font-poppins text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
             Messages
           </h1>
         </div>

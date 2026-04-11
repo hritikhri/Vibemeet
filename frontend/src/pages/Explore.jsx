@@ -88,15 +88,14 @@ export default function Explore() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
         :root {
-          --bg: #f5f3ef;
+          --bg: #f8f7f4;
           --surface: #ffffff;
           --surface2: #f0ede8;
-          --primary: #1a1a2e;
-          --accent: #e8633a;
-          --accent2: #3a7bd5;
+          --accent: #4a9c6e;
+          --accent2: #6ab8a0;
           --muted: #8a8580;
           --border: #e4e0da;
-          --text: #1a1a1a;
+          --text: #1f2a44;
           --text2: #5c5750;
         }
         * { font-family: 'Sora', sans-serif; box-sizing: border-box; }
@@ -104,7 +103,7 @@ export default function Explore() {
 
         .explore-header {
           position: sticky; top: 0; z-index: 50;
-          background: rgba(245,243,239,0.94);
+          background: rgba(248,247,244,0.94);
           backdrop-filter: blur(20px);
           border-bottom: 1px solid var(--border);
           padding: 14px 20px 12px;
@@ -121,7 +120,7 @@ export default function Explore() {
         }
         .search-wrap.focused {
           border-color: var(--accent);
-          box-shadow: 0 0 0 3px rgba(232,99,58,0.1);
+          box-shadow: 0 0 0 3px rgba(74,156,110,0.1);
         }
         .search-input {
           flex: 1; border: none; outline: none; background: transparent;
@@ -138,7 +137,7 @@ export default function Explore() {
         }
         .radius-btn.active {
           background: var(--accent); color: white; border-color: var(--accent);
-          box-shadow: 0 2px 12px rgba(232,99,58,0.25);
+          box-shadow: 0 2px 12px rgba(74,156,110,0.25);
         }
         .radius-btn:not(.active):hover { border-color: var(--accent); color: var(--accent); }
 
@@ -173,16 +172,16 @@ export default function Explore() {
         .interest-tag {
           display: inline-block; padding: 5px 12px; border-radius: 100px;
           font-size: 11px; font-weight: 600;
-          background: rgba(232,99,58,0.08); color: var(--accent);
-          border: 1px solid rgba(232,99,58,0.15);
+          background: rgba(74,156,110,0.08); color: var(--accent);
+          border: 1px solid rgba(74,156,110,0.15);
         }
 
         .dist-badge {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 4px 10px; border-radius: 100px;
-          background: rgba(58,123,213,0.08); color: var(--accent2);
+          background: rgba(74,156,110,0.08); color: var(--accent);
           font-size: 11px; font-weight: 600;
-          border: 1px solid rgba(58,123,213,0.15);
+          border: 1px solid rgba(74,156,110,0.15);
         }
 
         .btn-primary {
@@ -191,9 +190,9 @@ export default function Explore() {
           border: none; font-size: 13px; font-weight: 600;
           cursor: pointer; font-family: 'Sora', sans-serif;
           transition: all 0.18s;
-          box-shadow: 0 3px 14px rgba(232,99,58,0.3);
+          box-shadow: 0 3px 14px rgba(74,156,110,0.3);
         }
-        .btn-primary:hover { background: #d4522a; transform: translateY(-1px); }
+        .btn-primary:hover { background: #3e8a5f; transform: translateY(-1px); }
 
         .btn-secondary {
           padding: 10px 20px; border-radius: 12px;
@@ -214,7 +213,7 @@ export default function Explore() {
 
         .skeleton { border-radius: 20px; overflow: hidden; }
         .skeleton-inner {
-          background: linear-gradient(90deg, var(--surface2) 25%, #e8e4de 50%, var(--surface2) 75%);
+          background: linear-gradient(90deg, var(--surface2) 25%, #e4e0da 50%, var(--surface2) 75%);
           background-size: 200% 100%;
           animation: shimmer 1.4s infinite;
         }
@@ -227,18 +226,18 @@ export default function Explore() {
 
         .view-details-btn {
           width: 100%; padding: 13px; border-radius: 14px;
-          background: var(--primary); color: white;
+          background: var(--accent); color: white;
           border: none; font-size: 13px; font-weight: 600;
           cursor: pointer; font-family: 'Sora', sans-serif;
           display: flex; align-items: center; justify-content: center; gap: 6px;
           transition: all 0.18s;
         }
-        .view-details-btn:hover { background: #2d2d4a; }
+        .view-details-btn:hover { background: #3e8a5f; }
 
         .empty-wrap { text-align: center; padding: 80px 24px; }
         .empty-icon-wrap {
           width: 88px; height: 88px; border-radius: 26px; margin: 0 auto 20px;
-          background: linear-gradient(135deg, #fff5f2, #fde8df);
+          background: linear-gradient(135deg, #e8f5e9, #d1e6d8);
           display: flex; align-items: center; justify-content: center; font-size: 36px;
         }
 
@@ -258,7 +257,7 @@ export default function Explore() {
                 <input
                   ref={inputRef}
                   className="search-input"
-                  placeholder="Search activities or people…"
+                  placeholder="Search hangouts or friends…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
@@ -307,7 +306,7 @@ export default function Explore() {
             {/* ── People results ── */}
             {isSearching && users.length > 0 && (
               <>
-                <p className="section-label">People</p>
+                <p className="section-label">People nearby</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {users.map((u, i) => {
                     const state = followStates[u._id] || 'none';
@@ -333,7 +332,7 @@ export default function Explore() {
                             onClick={() => handleFollow(u._id)}
                             disabled={state === 'friends'}
                           >
-                            {state === 'following' ? <><Rss size={12} /> Following</> : state === 'friends' ? <><UserCheck size={12} /> Friends</> : <><Rss size={12} /> Follow</>}
+                            {state === 'following' ? <><Rss size={12} /> Following</> : state === 'friends' ? <><UserCheck size={12} /> Friends</> : <><UserPlus size={12} /> Add Friend</>}
                           </button>
                           {/* Add friend button */}
                           {state !== 'friends' && (
@@ -343,7 +342,7 @@ export default function Explore() {
                               onClick={() => handleFriendRequest(u._id)}
                               disabled={state === 'sent' || state === 'friends'}
                             >
-                              {state === 'sent' ? 'Sent' : <><UserPlus size={11} /> Friend</>}
+                              {state === 'sent' ? 'Request Sent' : <><UserPlus size={11} /> Friend Request</>}
                             </button>
                           )}
                         </div>
@@ -358,7 +357,7 @@ export default function Explore() {
             {activities.length > 0 && (
               <>
                 <p className="section-label">
-                  {isSearching ? 'Matching activities' : 'Near you'}
+                  {isSearching ? 'Matching hangouts' : 'Hangouts near you'}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {activities.map((act, i) => (
@@ -446,12 +445,12 @@ export default function Explore() {
             {/* ── Empty state ── */}
             {activities.length === 0 && (!isSearching || users.length === 0) && !loading && (
               <div className="empty-wrap">
-                <div className="empty-icon-wrap">📍</div>
+                <div className="empty-icon-wrap">🌳</div>
                 <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-                  Nothing found
+                  No hangouts found
                 </p>
                 <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto', lineHeight: 1.6 }}>
-                  Try widening your radius or searching with a different keyword
+                  Try increasing your radius or searching with a different keyword
                 </p>
               </div>
             )}

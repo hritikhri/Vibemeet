@@ -4,376 +4,225 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import BottomNav from '../components/layout/BottomNav';
 import Avatar from '../components/common/Avatar';
-import Button from '../components/ui/Button';
 import FeedCard from '../components/feed/FeedCard';
 import api from '../lib/api';
 import {
-  MessageCircle, UserPlus, Edit3, Users,
-  Calendar, UserMinus, Settings, UserCheck, Rss
+  MessageCircle, Edit3, Settings, Heart,
+  MapPin, Sparkles, X, ChevronRight, UserCheck
 } from 'lucide-react';
 
 export default function Profile() {
-  const { id } = useParams();
+  const { id }               = useParams();
   const { user: currentUser } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate             = useNavigate();
 
   const activitiesRef = useRef(null);
   const modalRef      = useRef(null);
 
-  const [profileUser,         setProfileUser]         = useState(null);
-  const [activities,          setActivities]           = useState([]);
-  const [friends,             setFriends]              = useState([]);
-  const [loading,             setLoading]              = useState(true);
-
-  // ── Social state ────────────────────────────────────────────────────────────
-  // friendStatus: 'none' | 'sent' | 'friends'
-  const [friendStatus,        setFriendStatus]         = useState('none');
-  // isFollowing: whether currentUser follows this profile
-  const [isFollowing,         setIsFollowing]          = useState(false);
-  const [followLoading,       setFollowLoading]        = useState(false);
-  const [friendLoading,       setFriendLoading]        = useState(false);
-
-  const [showFriendsModal,    setShowFriendsModal]     = useState(false);
-  const [showFollowersModal,  setShowFollowersModal]   = useState(false);
-  const [showFollowingModal,  setShowFollowingModal]   = useState(false);
-  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
-  const [selectedFriend,      setSelectedFriend]       = useState(null);
+  const [profileUser,    setProfileUser]   = useState(null);
+  const [activities,     setActivities]    = useState([]);
+  const [loading,        setLoading]       = useState(true);
+  const [isFollowing,    setIsFollowing]   = useState(false);
+  const [followLoading,  setFollowLoading] = useState(false);
+  const [activeModal,    setActiveModal]   = useState(null); // 'followers' | 'following' | null
 
   const isOwnProfile = !id || id === currentUser?._id;
 
-  // ── Close modal on outside click ────────────────────────────────────────────
+  /* ── outside click closes modal ─────────────────────────────────────────── */
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (modalRef.current && !modalRef.current.contains(e.target)) {
-        closeAllModals();
-      }
-    };
-    const anyModalOpen = showFriendsModal || showFollowersModal || showFollowingModal;
-    if (anyModalOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFriendsModal, showFollowersModal, showFollowingModal]);
+    const h = (e) => { if (modalRef.current && !modalRef.current.contains(e.target)) setActiveModal(null); };
+    if (activeModal) document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [activeModal]);
 
-  // ── Fetch profile ────────────────────────────────────────────────────────────
+  /* ── fetch ──────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const userId = id || currentUser?._id;
-        const { data: userData } = await api.get(`/users/${userId}`);
-        setProfileUser(userData);
-        setFriends(userData.friends || []);
-
+    setLoading(true);
+    const uid = id || currentUser?._id;
+    Promise.all([api.get(`/users/${uid}`), api.get(`/users/${uid}/activities`)])
+      .then(([{ data: u }, { data: acts }]) => {
+        setProfileUser(u);
+        setActivities(acts || []);
         if (!isOwnProfile) {
-          // Friend status
-          if (userData.friends?.some(f => f._id === currentUser?._id)) {
-            setFriendStatus('friends');
-          } else if (userData.friendRequests?.some(f => f._id === currentUser?._id)) {
-            setFriendStatus('sent');
-          } else {
-            setFriendStatus('none');
-          }
-
-          // Follow status — check if currentUser is in this profile's followers list
-          setIsFollowing(
-            userData.followers?.some(f => f._id === currentUser?._id) ?? false
-          );
+          setIsFollowing(u.followers?.some(f => (f._id || f) === currentUser?._id) ?? false);
         }
-
-        const { data: userActivities } = await api.get(`/users/${userId}/activities`);
-        setActivities(userActivities || []);
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
+      })
+      .catch(e => console.error('Profile fetch error:', e))
+      .finally(() => setLoading(false));
   }, [id, currentUser]);
 
-  // ── Follow / Unfollow ────────────────────────────────────────────────────────
+  /* ── follow toggle (optimistic) ─────────────────────────────────────────── */
   const handleToggleFollow = async () => {
+    if (followLoading) return;
     setFollowLoading(true);
-    try {
-      const { data } = await api.post(`/users/${id}/follow`);
-      setIsFollowing(data.following);
-      // Update follower count optimistically
+    const was = isFollowing;
+    setIsFollowing(!was);
+    setProfileUser(prev => ({
+      ...prev,
+      followers: was
+        ? (prev.followers || []).filter(f => (f._id || f) !== currentUser._id)
+        : [...(prev.followers || []), { _id: currentUser._id }],
+    }));
+    try { await api.post(`/users/${id}/follow`); }
+    catch {
+      setIsFollowing(was);
       setProfileUser(prev => ({
         ...prev,
-        followers: data.following
+        followers: was
           ? [...(prev.followers || []), { _id: currentUser._id }]
-          : (prev.followers || []).filter(f => f._id !== currentUser._id),
+          : (prev.followers || []).filter(f => (f._id || f) !== currentUser._id),
       }));
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to update follow");
-    } finally {
-      setFollowLoading(false);
-    }
+    } finally { setFollowLoading(false); }
   };
 
-  // ── Friend Request ───────────────────────────────────────────────────────────
-  const handleFriendRequest = async () => {
-    if (friendStatus !== 'none') return;
-    setFriendLoading(true);
-    try {
-      await api.post(`/users/${id}/friend-request`);
-      setFriendStatus('sent');
-      // Also flip follow state since sending a request auto-follows
-      setIsFollowing(true);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to send friend request");
-    } finally {
-      setFriendLoading(false);
-    }
-  };
-
-  // ── Unfriend ─────────────────────────────────────────────────────────────────
-  const handleUnfriend = async () => {
-    if (!selectedFriend) return;
-    try {
-      await api.post(`/users/unfriend`, { friendId: selectedFriend._id });
-      setFriends(prev => prev.filter(f => f._id !== selectedFriend._id));
-      setProfileUser(prev => ({
-        ...prev,
-        friends: prev.friends.filter(f => f._id !== selectedFriend._id),
-      }));
-      // If we unfriended the profile we're viewing, reset status
-      if (selectedFriend._id === id) setFriendStatus('none');
-      closeUnfriendConfirm();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to unfriend");
-    }
-  };
-
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  const scrollToActivities = () =>
-    activitiesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  const closeAllModals = () => {
-    setShowFriendsModal(false);
-    setShowFollowersModal(false);
-    setShowFollowingModal(false);
-  };
-
-  const openUnfriendConfirm = (friend) => {
-    setSelectedFriend(friend);
-    setShowUnfriendConfirm(true);
-  };
-
-  const closeUnfriendConfirm = () => {
-    setShowUnfriendConfirm(false);
-    setSelectedFriend(null);
-  };
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-4 text-gray-500">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Derived counts ───────────────────────────────────────────────────────────
   const followerCount  = profileUser?.followers?.length  ?? 0;
   const followingCount = profileUser?.following?.length  ?? 0;
-  const friendCount    = profileUser?.friends?.length    ?? 0;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const modalData = activeModal === 'followers'
+    ? { title: 'Followers', sub: `${followerCount} friends follow you`, list: profileUser?.followers || [] }
+    : { title: 'Following', sub: `Following ${followingCount} friends`, list: profileUser?.following || [] };
+
+  /* ── loading ────────────────────────────────────────────────────────────── */
+  if (loading) return (
+    <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <style>{GLOBAL_STYLES}</style>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:56,height:56,borderRadius:20,margin:'0 auto 16px',
+          background:'linear-gradient(135deg,#4a9c6e,#6ab8a0)',
+          display:'flex',alignItems:'center',justifyContent:'center',animation:'pulse 1.8s ease-in-out infinite' }}>
+          <UserCheck size={26} color="white" />
+        </div>
+        <p style={{ fontFamily:'Sora', color:'var(--muted)', fontSize:14 }}>Loading profile…</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div style={{ minHeight:'100vh', background:'var(--bg)', fontFamily:'Sora', paddingBottom:96 }}>
+      <style>{GLOBAL_STYLES}</style>
 
-      {/* Cover */}
-      <div className="h-15 md:h-24 bg-gradient-to-br from-primary via-accent to-purple-600 relative">
-        {isOwnProfile && (
-          <button
-            onClick={() => navigate('/setting')}
-            className="absolute top-4 right-4 md:hidden z-10 bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-lg hover:bg-white transition-all active:scale-95"
-            aria-label="Settings"
-          >
-            <Settings size={22} className="text-gray-700" />
+      {/* ── Cover ──────────────────────────────────────────────────────────── */}
+      <div className="cover">
+        <div className="orb" style={{ width:200,height:200,top:-50,right:-50 }} />
+        <div className="orb" style={{ width:110,height:110,bottom:20,left:80,animationDelay:'2s' }} />
+        <div className="orb" style={{ width:70,height:70,top:50,left:'42%',animationDelay:'3.5s' }} />
+
+        {isOwnProfile ? (
+          <button className="corner-btn" onClick={() => navigate('/setting')}>
+            <Settings size={17} color="white" />
+          </button>
+        ) : (
+          <button className="corner-btn" onClick={() => navigate(-1)}>
+            <ChevronRight size={17} color="white" style={{ transform:'rotate(180deg)' }} />
           </button>
         )}
       </div>
 
-      {/* Main content */}
-      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-10 md:pt-12">
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth:680, margin:'0 auto', padding:'0 16px' }}>
 
-        {/* Avatar + Name + Actions */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+        {/* Avatar + Buttons row */}
+        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
 
           {/* Avatar */}
-          <div className="flex-shrink-0 -mt-16 md:-mt-20 relative z-10">
-            <Avatar src={profileUser?.avatar} size="xl" />
+          <div className="avatar-ring">
+            <div className="avatar-inner">
+              {profileUser?.avatar
+                ? <img src={profileUser.avatar} alt={profileUser.name} style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+                : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',
+                    background:'linear-gradient(135deg,#e8f5e9,#c1e6d4)',fontSize:38,fontWeight:800,color:'var(--accent)' }}>
+                    {profileUser?.name?.[0] || '?'}
+                  </div>
+              }
+            </div>
           </div>
 
-          {/* Name + Buttons */}
-          <div className="flex-1 mt-2 md:mt-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-semibold font-poppins tracking-tight text-gray-900">
-                  {profileUser?.name}
-                </h1>
-                <p className="text-gray-500 text-lg">@{profileUser?.username}</p>
-              </div>
-
-              {/* ── Action buttons ── */}
-              <div className="flex gap-3 flex-wrap">
-
-                {/* ── Other user ── */}
-                {!isOwnProfile && (
-                  <>
-                    {/* Follow / Unfollow */}
-                    <Button
-                      onClick={handleToggleFollow}
-                      disabled={followLoading}
-                      variant={isFollowing ? "secondary" : "primary"}
-                      className="flex items-center gap-2"
-                    >
-                      {followLoading ? (
-                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : isFollowing ? (
-                        <><Rss size={16} />Following</>
-                      ) : (
-                        <><Rss size={16} />Follow</>
-                      )}
-                    </Button>
-
-                    {/* Add Friend / Request Sent / Friends */}
-                    <Button
-                      onClick={handleFriendRequest}
-                      variant={friendStatus === 'friends' ? "secondary" : "primary"}
-                      disabled={friendStatus === 'friends' || friendStatus === 'sent' || friendLoading}
-                      className="flex items-center gap-2"
-                    >
-                      {friendLoading ? (
-                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : friendStatus === 'friends' ? (
-                        <><UserCheck size={18} />Friends</>
-                      ) : friendStatus === 'sent' ? (
-                        <>Request Sent</>
-                      ) : (
-                        <><UserPlus size={18} />Add Friend</>
-                      )}
-                    </Button>
-
-                    {/* Message */}
-                    <Button
-                      onClick={() => navigate(`/chat/private/${id}`)}
-                      className="flex items-center gap-2"
-                    >
-                      <MessageCircle size={18} />
-                      Message
-                    </Button>
-                  </>
-                )}
-
-                {/* ── Own profile ── */}
-                {isOwnProfile && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate('/setting')}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-2xl font-medium shadow-sm transition-all"
-                  >
-                    <Edit3 size={18} />
-                    Edit Profile
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Bio */}
-            <div className="mt-6">
-              <p className="text-gray-700 leading-relaxed text-[15.5px] tracking-tight">
-                {profileUser?.bio || "No bio added yet."}
-              </p>
-            </div>
-
-            {/* Interests */}
-            {profileUser?.interests?.length > 0 && (
-              <div className="mt-6">
-                <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-3">
-                  INTERESTS
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {profileUser.interests.map((interest, index) => (
-                    <span
-                      key={index}
-                      className="px-4 py-1.5 text-sm bg-white border border-gray-100 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          {/* Action buttons */}
+          <div style={{ display:'flex',gap:8,alignItems:'center',paddingBottom:10,flexWrap:'wrap' }} className="fade-in">
+            {!isOwnProfile ? (
+              <>
+                <button
+                  className={isFollowing ? 'btn-follow-off' : 'btn-follow-on'}
+                  onClick={handleToggleFollow}
+                  disabled={followLoading}
+                >
+                  {followLoading
+                    ? <span className="spinner" />
+                    : isFollowing
+                      ? <><UserCheck size={15}/> Friends</>
+                      : <><UserCheck size={14}/> Add Friend</>
+                  }
+                </button>
+                <button className="btn-message" onClick={() => navigate(`/chat/private/${id}`)}>
+                  <MessageCircle size={15}/> Message
+                </button>
+              </>
+            ) : (
+              <button className="btn-edit" onClick={() => navigate('/setting')}>
+                <Edit3 size={14}/> Edit Profile
+              </button>
             )}
           </div>
         </div>
 
-        {/* ── Stats row ── */}
-        <div className="grid grid-cols-4 gap-3 mt-10">
-
-          {/* Activities */}
-          <div
-            onClick={scrollToActivities}
-            className="bg-white rounded-3xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.985] text-center"
-          >
-            <p className="text-3xl font-semibold text-primary">{activities.length}</p>
-            <p className="text-xs text-gray-500 font-medium mt-1">Activities</p>
-          </div>
-
-          {/* Friends */}
-          <div
-            onClick={() => setShowFriendsModal(true)}
-            className="bg-white rounded-3xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.985] text-center"
-          >
-            <p className="text-3xl font-semibold text-primary">{friendCount}</p>
-            <p className="text-xs text-gray-500 font-medium mt-1">Friends</p>
-          </div>
-
-          {/* Followers */}
-          <div
-            onClick={() => setShowFollowersModal(true)}
-            className="bg-white rounded-3xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.985] text-center"
-          >
-            <p className="text-3xl font-semibold text-primary">{followerCount}</p>
-            <p className="text-xs text-gray-500 font-medium mt-1">Followers</p>
-          </div>
-
-          {/* Following */}
-          <div
-            onClick={() => setShowFollowingModal(true)}
-            className="bg-white rounded-3xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.985] text-center"
-          >
-            <p className="text-3xl font-semibold text-primary">{followingCount}</p>
-            <p className="text-xs text-gray-500 font-medium mt-1">Following</p>
+        {/* Name */}
+        <div style={{ marginTop:16, animationDelay:'.08s'}} className="fade-in">
+          <h1 className="serif-name">{profileUser?.name}</h1>
+          <div style={{ display:'flex',alignItems:'center',gap:10,marginTop:6,flexWrap:'wrap' }}>
+            <span style={{ fontSize:14,color:'var(--muted)',fontWeight:500 }}>@{profileUser?.username}</span>
+            {profileUser?.mood && (
+              <span className="mood-chip"><Sparkles size={11}/> {profileUser.mood}</span>
+            )}
           </div>
         </div>
 
-        {/* ── Activities section ── */}
-        <div ref={activitiesRef} className="mt-14 scroll-mt-24">
-          <h3 className="font-semibold text-2xl mb-6 text-gray-900">
-            {isOwnProfile ? "My Activities" : `${profileUser?.name?.split(' ')[0]}'s Activities`}
-          </h3>
+        {/* Bio */}
+        {profileUser?.bio && (
+          <p className="bio fade-in" style={{ animationDelay:'.14s' }}>{profileUser.bio}</p>
+        )}
+
+        {/* Interests */}
+        {profileUser?.interests?.length > 0 && (
+          <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginTop:16, animationDelay:'.18s'}} className="fade-in">
+            {profileUser.interests.map((t, i) => <span key={i} className="tag">{t}</span>)}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="stats-grid fade-in" style={{ animationDelay:'.22s' }}>
+          <div className="stat-card" onClick={() => activitiesRef.current?.scrollIntoView({ behavior:'smooth' })}>
+            <span className="stat-num">{activities.length}</span>
+            <span className="stat-label">Hangouts</span>
+          </div>
+          <div className="stat-card" onClick={() => setActiveModal('followers')}>
+            <span className="stat-num">{followerCount}</span>
+            <span className="stat-label">Friends</span>
+          </div>
+          <div className="stat-card" onClick={() => setActiveModal('following')}>
+            <span className="stat-num">{followingCount}</span>
+            <span className="stat-label">Following</span>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height:1,background:'var(--border)',margin:'32px 0' }} />
+
+        {/* Activities */}
+        <div ref={activitiesRef} style={{ scrollMarginTop:24 }}>
+          <h2 className="section-title">
+            {isOwnProfile ? 'My Hangouts' : `${profileUser?.name?.split(' ')[0]}'s Hangouts`}
+          </h2>
 
           {activities.length === 0 ? (
-            <div className="bg-white rounded-3xl py-16 text-center border border-gray-100">
-              <div className="text-6xl mb-4">🏞️</div>
-              <p className="text-gray-500 text-lg">No activities yet</p>
-              {isOwnProfile && (
-                <p className="text-sm text-gray-400 mt-2">Create your first vibe to get started</p>
-              )}
+            <div className="empty-card">
+              <div className="empty-icon">👥</div>
+              <p style={{ fontSize:16,fontWeight:700,color:'var(--text)',marginBottom:6 }}>No hangouts yet</p>
+              {isOwnProfile && <p style={{ fontSize:13,color:'var(--muted)' }}>Create your first hangout and invite friends</p>}
             </div>
           ) : (
-            <div className="space-y-6">
-              {activities.map((activity) => (
-                <FeedCard
-                  key={activity._id}
-                  activity={activity}
-                  onJoin={() => navigate(`/activity/${activity._id}`)}
-                />
+            <div style={{ display:'flex',flexDirection:'column',gap:16}}>
+              {activities.map(act => (
+                <FeedCard key={act._id} activity={act} onJoin={() => navigate(`/activity/${act._id}`)} />
               ))}
             </div>
           )}
@@ -382,68 +231,55 @@ export default function Profile() {
 
       <BottomNav />
 
-      {/* ── Reusable user list modal ── */}
-      {[
-        { show: showFriendsModal,   list: friends,                    title: `Friends (${friendCount})`,      close: () => setShowFriendsModal(false),   showUnfriend: isOwnProfile },
-        { show: showFollowersModal, list: profileUser?.followers??[], title: `Followers (${followerCount})`,  close: () => setShowFollowersModal(false),  showUnfriend: false },
-        { show: showFollowingModal, list: profileUser?.following??[], title: `Following (${followingCount})`, close: () => setShowFollowingModal(false),  showUnfriend: false },
-      ].map(({ show, list, title, close, showUnfriend }) =>
-        show ? (
-          <div key={title} className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-[100] p-4">
-            <div ref={modalRef} className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-5 border-b">
-                <h2 className="text-2xl font-semibold">{title}</h2>
-                <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full transition-colors">✕</button>
+      {/* ── Followers / Following Modal ─────────────────────────────────────── */}
+      {activeModal && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-box" ref={modalRef} onClick={e => e.stopPropagation()}>
+
+            <div className="modal-handle" />
+
+            <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',
+              padding:'16px 20px 14px',borderBottom:'1px solid var(--border)' }}>
+              <div>
+                <p className="serif" style={{ fontSize:20,color:'var(--text)' }}>{modalData.title}</p>
+                <p style={{ fontSize:12,color:'var(--muted)',marginTop:2,fontWeight:500 }}>{modalData.sub}</p>
               </div>
-              <div className="max-h-[420px] overflow-y-auto p-6 space-y-3">
-                {list.length === 0 ? (
-                  <p className="text-center text-gray-500 py-12">No users yet</p>
-                ) : (
-                  list.map((person) => (
-                    <div key={person._id} className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl group">
-                      <Avatar src={person.avatar} size="md" />
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => { close(); navigate(`/profile/${person._id}`); }}
-                      >
-                        <p className="font-medium truncate">{person.name}</p>
-                        <p className="text-sm text-gray-500 truncate">@{person.username}</p>
-                      </div>
-                      {showUnfriend && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openUnfriendConfirm(person); }}
-                          className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                        >
-                          <UserMinus size={20} />
-                        </button>
+              <button className="modal-close" onClick={() => setActiveModal(null)}>
+                <X size={15} color="var(--accent)" />
+              </button>
+            </div>
+
+            <div style={{ overflowY:'auto',padding:'8px 0 20px',flex:1 }}>
+              {modalData.list.length === 0 ? (
+                <div style={{ textAlign:'center',padding:'48px 24px',color:'var(--muted)' }}>
+                  <div style={{ fontSize:40,marginBottom:12 }}>{activeModal === 'followers' ? '👥' : '🌿'}</div>
+                  <p style={{ fontWeight:600 }}>No {activeModal} yet</p>
+                </div>
+              ) : (
+                modalData.list.map((p, i) => (
+                  <div key={p._id || i} className="person-row"
+                    onClick={() => { setActiveModal(null); navigate(`/profile/${p._id}`); }}>
+                    <div style={{ width:48,height:48,borderRadius:'50%',overflow:'hidden',
+                      background:'var(--surface2)',flexShrink:0,border:'2px solid var(--border)' }}>
+                      {p.avatar
+                        ? <img src={p.avatar} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                        : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',
+                            justifyContent:'center',fontSize:20,fontWeight:800,color:'var(--accent)'}}>
+                            {p.name?.[0]}
+                          </div>
+                      }
+                    </div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <p style={{ fontWeight:700,fontSize:14,color:'var(--text)',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.name}</p>
+                      {p.username && (
+                        <p style={{ fontSize:12,color:'var(--muted)',marginTop:1 }}>@{p.username}</p>
                       )}
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        ) : null
-      )}
-
-      {/* ── Unfriend confirmation ── */}
-      {showUnfriendConfirm && selectedFriend && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-[110] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-8 text-center">
-            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
-              <UserMinus size={32} className="text-red-600" />
-            </div>
-            <h3 className="text-2xl font-semibold mb-2">Unfriend {selectedFriend.name}?</h3>
-            <p className="text-gray-600 mb-8">
-              They will stay in each other's followers. Only the friend connection will be removed.
-            </p>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={closeUnfriendConfirm} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleUnfriend} className="flex-1 bg-red-600 hover:bg-red-700">
-                Unfriend
-              </Button>
+                    <ChevronRight size={15} color="var(--border)" />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -451,3 +287,210 @@ export default function Profile() {
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+const GLOBAL_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --accent: #4a9c6e;
+    --accent2: #6ab8a0;
+    --muted: #8a8580;
+    --border: #e4e0da;
+    --text: #1f2a44;
+  }
+
+  * { box-sizing: border-box; margin: 0; font-family: 'Sora', sans-serif; }
+  .serif { font-family: 'Instrument Serif', serif; }
+
+  /* Cover */
+  .cover {
+    position: relative; height: 220px; overflow: hidden;
+    background: linear-gradient(155deg, #1a2a2f 0%, #2e4a44 35%, #3a6b5c 70%, #4a9c6e 100%);
+  }
+  .cover::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 100px;
+    background: linear-gradient(to bottom, transparent, var(--bg));
+  }
+  .orb {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    animation: float 7s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+
+  .corner-btn {
+    position: absolute; top: 16px; right: 16px; z-index: 10;
+    width: 40px; height: 40px; border-radius: 14px; border: none;
+    background: rgba(255,255,255,0.18); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .18s;
+  }
+  .corner-btn:hover { background: rgba(255,255,255,0.28); }
+
+  /* Avatar */
+  .avatar-ring {
+    position: relative; z-index: 10;
+    width: 108px; height: 108px;
+    margin-top: -54px; border-radius: 50%; padding: 3px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow: 0 10px 36px rgba(74,156,110,0.35); flex-shrink: 0;
+  }
+  .avatar-inner {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 3px solid var(--bg); overflow: hidden; background: #e8f5e9;
+  }
+
+  /* Buttons */
+  .btn-follow-on {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 11px 26px; border-radius: 50px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 6px 24px rgba(74,156,110,0.35);
+  }
+  .btn-follow-on:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(74,156,110,0.45); }
+  .btn-follow-on:active { transform: scale(.95); }
+  .btn-follow-on:disabled { opacity:.6; pointer-events:none; }
+
+  .btn-follow-off {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 11px 24px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .btn-follow-off:hover { border-color: var(--accent); color: var(--accent); background: #e8f5e9; }
+  .btn-follow-off:disabled { opacity:.6; pointer-events:none; }
+
+  .btn-message {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 11px 20px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-message:hover { border-color: var(--accent); color: var(--accent); background: #e8f5e9; }
+
+  .btn-edit {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-edit:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Typography */
+  .serif-name { 
+    font-family: 'Instrument Serif', serif; 
+    font-size: 34px; color: var(--text); line-height: 1.1; 
+    letter-spacing: -.3px; font-weight: 600; 
+  }
+  .bio { font-size: 14.5px; color: #5c6b66; line-height: 1.75; margin-top: 14px; font-weight: 400; }
+  .section-title { 
+    font-family: 'Instrument Serif', serif; 
+    font-size: 23px; color: var(--text); margin-bottom: 20px; font-weight: 600; 
+  }
+
+  /* Mood chip */
+  .mood-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    padding: 4px 12px; border-radius: 100px;
+    background: #e8f5e9; border: 1px solid rgba(74,156,110,0.15);
+  }
+
+  /* Interest tag */
+  .tag {
+    padding: 6px 16px; border-radius: 100px;
+    background: #e8f5e9; color: var(--accent);
+    border: 1px solid rgba(74,156,110,0.14);
+    font-size: 12px; font-weight: 600; cursor: default;
+    transition: all .18s;
+  }
+  .tag:hover { background: var(--accent); color: white; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 26px; }
+  .stat-card {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 18px 12px; border-radius: 22px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; transition: all .22s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 2px 14px rgba(0,0,0,0.04);
+  }
+  .stat-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(74,156,110,0.12); border-color: var(--accent2); }
+  .stat-card:active { transform: scale(.96); }
+  .stat-num { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; font-family: 'Instrument Serif', serif; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 5px; letter-spacing: .04em; text-transform: uppercase; }
+
+  /* Empty state */
+  .empty-card { 
+    background: var(--surface); border-radius: 24px; 
+    border: 1px solid var(--border); padding: 56px 24px; text-align: center; 
+  }
+  .empty-icon { 
+    width: 72px; height: 72px; border-radius: 22px; 
+    background: #e8f5e9; margin: 0 auto 16px; 
+    display: flex; align-items: center; justify-content: center; font-size: 32px; 
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(31,42,68,.65); backdrop-filter: blur(18px);
+    display: flex; align-items: flex-end;
+    animation: mFadeIn .2s ease;
+  }
+  @media (min-width: 640px) { .modal-overlay { align-items: center; padding: 24px; } }
+  @keyframes mFadeIn { from{opacity:0} to{opacity:1} }
+
+  .modal-box {
+    background: var(--surface); border-radius: 32px 32px 0 0;
+    width: 100%; max-width: 480px; max-height: 80vh;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.18);
+    animation: mSlide .32s cubic-bezier(.34,1.56,.64,1);
+  }
+  @media (min-width: 640px) {
+    .modal-box { border-radius: 28px; margin: auto; box-shadow: 0 40px 80px rgba(0,0,0,0.18); animation: mZoom .25s ease; }
+  }
+  @keyframes mSlide { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  @keyframes mZoom  { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
+
+  .modal-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 14px auto 0; }
+
+  .modal-close {
+    width: 36px; height: 36px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: #e8f5e9; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .18s;
+  }
+  .modal-close:hover { background: var(--accent); border-color: var(--accent); }
+  .modal-close:hover svg { color: white !important; }
+
+  .person-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 20px; cursor: pointer; border-radius: 16px; margin: 2px 10px;
+    transition: background .15s;
+  }
+  .person-row:hover { background: #e8f5e9; }
+
+  /* Animations */
+  .fade-in { animation: fadeUp .4s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse  { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid currentColor; border-top-color: transparent;
+    animation: spin .7s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+`;

@@ -191,7 +191,7 @@ export default function FeedCard({ activity, onJoin, onUpdate, onDelete }) {
 
   return (
     <>
-      <Card className="mb-4 sm:mb-5 overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
+      <Card className="mb-4 sm:mb-5  overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
         <div className="p-4 sm:p-5">
 
           {/* ── Header ─────────────────────────────────────────────────────── */}

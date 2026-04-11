@@ -31,15 +31,15 @@ export default function HomeFeed() {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 
         :root {
-          --bg: #f5f3ef;
+          --bg: #f8f7f4;
           --surface: #ffffff;
           --surface2: #f0ede8;
-          --primary: #1a1a2e;
-          --accent: #e8633a;
-          --accent2: #3a7bd5;
+          --primary: #1f2a44;
+          --accent: #4a9c6e;
+          --accent2: #6ab8a0;
           --muted: #8a8580;
           --border: #e4e0da;
-          --text: #1a1a1a;
+          --text: #1f2a44;
           --text2: #5c5750;
         }
 
@@ -49,7 +49,7 @@ export default function HomeFeed() {
 
         .feed-header {
           position: sticky; top: 0; z-index: 50;
-          background: rgba(245, 243, 239, 0.92);
+          background: rgba(248, 247, 244, 0.92);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border-bottom: 1px solid transparent;
@@ -74,11 +74,11 @@ export default function HomeFeed() {
           background: var(--accent);
           display: flex; align-items: center; justify-content: center;
           color: white; border: none; cursor: pointer;
-          box-shadow: 0 8px 32px rgba(232, 99, 58, 0.4);
+          box-shadow: 0 8px 32px rgba(74, 156, 110, 0.4);
           transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
           z-index: 50;
         }
-        .create-btn:hover { transform: scale(1.08) rotate(3deg); box-shadow: 0 12px 40px rgba(232, 99, 58, 0.5); }
+        .create-btn:hover { transform: scale(1.08) rotate(3deg); box-shadow: 0 12px 40px rgba(74, 156, 110, 0.5); }
         .create-btn:active { transform: scale(0.95); }
 
         .skeleton {
@@ -95,8 +95,8 @@ export default function HomeFeed() {
         }
         .empty-icon {
           width: 96px; height: 96px; border-radius: 28px;
-          background: linear-gradient(135deg, #fff5f2, #fff0e8);
-          border: 2px solid #fde4d8;
+          background: linear-gradient(135deg, #f0f7f4, #e6f4ed);
+          border: 2px solid #d1ede0;
           display: flex; align-items: center; justify-content: center;
           font-size: 40px; margin-bottom: 24px;
         }
@@ -136,10 +136,10 @@ export default function HomeFeed() {
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '14px 20px' }}
           className="flex items-center justify-between">
 
-          {/* Wordmark */}
+          {/* Wordmark - Changed to Friendship Theme */}
           <div>
             <span className="serif" style={{ fontSize: 26, color: 'var(--text)', letterSpacing: '-0.5px' }}>
-              Vibe<span style={{ color: 'var(--accent)' }}>Meet</span>
+              Bond<span style={{ color: 'var(--accent)' }}>Circle</span>
             </span>
           </div>
 
@@ -176,7 +176,7 @@ export default function HomeFeed() {
 
             <span className="mood-pill" onClick={() => navigate('/setting')}>
               <span>✦</span>
-              {user?.mood || 'Set mood'}
+              {user?.mood || 'Set vibe'}
             </span>
 
             <div className="avatar-ring" onClick={() => navigate(`/profile/${user?._id}`)}>
@@ -198,7 +198,7 @@ export default function HomeFeed() {
             <span style={{ color: 'var(--accent)' }}>{user?.name?.split(' ')[0]}</span> ✦
           </p>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            Here's what's happening near you
+            Here's what's happening with your friends nearby
           </p>
         </div>
 
@@ -210,12 +210,12 @@ export default function HomeFeed() {
           </div>
         ) : activities.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">🏞️</div>
+            <div className="empty-icon">👥</div>
             <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
-              Nothing yet
+              No activities yet
             </p>
             <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 260, lineHeight: 1.6 }}>
-              Create your first activity and invite people to join your vibe
+              Create your first hangout and invite your friends to join
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -223,15 +223,15 @@ export default function HomeFeed() {
                 marginTop: 24, padding: '12px 28px', borderRadius: 14,
                 background: 'var(--accent)', color: 'white', border: 'none',
                 fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(232,99,58,0.3)',
+                boxShadow: '0 4px 20px rgba(74,156,110,0.3)',
               }}
             >
-              Create activity
+              Create hangout
             </button>
           </div>
         ) : (
           <>
-            <p className="section-label">Your feed</p>
+            <p className="section-label">Your friend feed</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {activities.map((activity, i) => (
                 <div key={activity._id} className="feed-item">
