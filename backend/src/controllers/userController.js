@@ -55,7 +55,7 @@ exports.updateAvatar = async (req, res) => {
 // ====================== UPDATE PROFILE ======================
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, bio, interests, mood, avatar } = req.body;
+    const { name, bio, interests, mood, avatar, link } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -63,14 +63,16 @@ exports.updateProfile = async (req, res) => {
         name, 
         bio, 
         interests, 
+        link,
         mood,
         ...(avatar && { avatar })   // Update avatar if provided
       },
       { new: true }
     );
-
+    console.log(updatedUser)
     res.json(updatedUser);
   } catch (error) {
+    console.log(error)
     res.status(500).json({ message: error.message });
   }
 };
@@ -219,8 +221,8 @@ exports.getSuggestedUsers = async (req, res) => {
       );
       return { ...user.toObject(), distance: Math.round(distance) };
     });
-
-    res.json(suggested);
+    // console.log(suggested)
+    return suggested;
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -246,6 +248,8 @@ exports.getUserActivities = async (req, res) => {
   try {
     const activities = await Activity.find({ creator: req.params.id })
       .populate("creator", "name avatar")
+      .populate("comments.user", "name avatar")
+      
       .sort({ createdAt: -1 });
 
     res.json(activities);

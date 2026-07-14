@@ -1,12 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
+        bg: "#f8f7f4",
+        surface: "#ffffff",
+        surface2: "#f0ede8",
+        accent: "#4a9c6e",
+        accent2: "#6ab8a0",
+        muted: "#8a8580",
+        border: "#e4e0da",
         primary: "#7F00FF",
         secondary: "#FF5F6D",
         accent: "#4a9c6e",
@@ -16,30 +20,30 @@ export default {
       },
       fontFamily: {
         poppins: ["Poppins", "sans-serif"],
-        inter: ["Inter", "sans-serif"]
+        inter: ["Inter", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 10px 30px -10px rgba(127, 0, 255, 0.25)"
+        soft: "0 10px 30px -10px rgba(127, 0, 255, 0.25)",
       },
       animation: {
-        fadeIn: 'fadeIn 0.8s ease-out forwards',
-        blob: 'blob 12s infinite'
+        fadeIn: "fadeIn 0.8s ease-out forwards",
+        blob: "blob 12s infinite",
       },
       keyframes: {
         fadeIn: {
-          '0%': { opacity: 0, transform: 'translateY(20px)' },
-          '100%': { opacity: 1, transform: 'translateY(0)' },
+          "0%": { opacity: 0, transform: "translateY(20px)" },
+          "100%": { opacity: 1, transform: "translateY(0)" },
         },
         blob: {
-          '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
-          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-        }
+          "0%, 100%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+          "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+        },
       },
       animationDelay: {
-        2000: '2s',
-        4000: '4s'
-      }
+        2000: "2s",
+        4000: "4s",
+      },
     },
   },
   plugins: [],

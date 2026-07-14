@@ -1,5 +1,6 @@
 // backend/socket/index.js
 const { onlineUsers, userLastSeen, sendActivityOnlineUsers } = require("./utils");
+const { addOnlineUser, removeOnlineUser } = require("./utils");
 
 const registerPrivateChatHandlers = require("./privateChat");
 const registerGroupChatHandlers = require("./groupChat");
@@ -17,10 +18,11 @@ exports.setupSocket = (io) => {
 
       const { userId, name, avatar } = userData;
 
+      addOnlineUser(socket.id, { userId, name: name || "Unknown", avatar });
       onlineUsers.set(socket.id, { userId, name: name || "Unknown", avatar });
 
       socket.join(`user_${userId}`);
-      userLastSeen.delete(userId);
+      // userLastSeen.delete(userId);
       socket.join(`user_${userId}`);   // For targeted delivery/read events
       console.log(`✅ User ${userId} (${name}) is now ONLINE`);
 
@@ -45,19 +47,18 @@ exports.setupSocket = (io) => {
     });
 
     // ====================== DISCONNECT ======================
-    socket.on("disconnect", () => {
-      const userInfo = onlineUsers.get(socket.id);
-      if (userInfo) {
-        onlineUsers.delete(socket.id);
-        userLastSeen.set(userInfo.userId, new Date());
+socket.on("disconnect", async () => {
+  const userInfo = onlineUsers.get(socket.id);
+  if (userInfo) {
+    await removeOnlineUser(socket.id);   // Use the function from utils
 
-        io.emit("userOnlineStatus", {
-          userId: userInfo.userId,
-          isOnline: false,
-          lastSeen: new Date(),
-        });
-      }
-      console.log(`❌ Socket disconnected: ${socket.id}`);
+    io.emit("userOnlineStatus", {
+      userId: userInfo.userId,
+      isOnline: false,
+      lastSeen: new Date(),
     });
+  }
+  console.log(`❌ Socket disconnected: ${socket.id}`);
+});
   });
 };

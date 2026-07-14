@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+  :root {
+    --bg:#f8f7f4; --surface:#ffffff; --surface2:#f0ede8;
+    --accent:#4a9c6e; --accent2:#6ab8a0; --muted:#8a8580; --border:#e4e0da; --text:#1f2a44;
+  }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   font-family: 'Inter', system_ui, sans-serif;
 }
@@ -16,4 +25,8 @@ h1, h2, h3, h4 {
 .card:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 40px -15px rgba(205, 180, 219, 0.3);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

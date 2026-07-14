@@ -1,21 +1,29 @@
-// frontend/src/components/layout/Sidebar.jsx
+// src/components/layout/Sidebar.jsx
 import { useState, useRef, useEffect } from 'react';
-import { Home, Compass, MessageCircle, Bell, User, MoreHorizontal, LogOut, Settings } from 'lucide-react';
+import { 
+  Home, Compass, MessageCircle, Bell, User, 
+  MoreHorizontal, LogOut, Settings, Shield, 
+  HelpCircle, Bookmark, Moon, Sun 
+} from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/useAuthStore';
+import Avatar from '../common/Avatar';
 
 const navItems = [
-  { to: '/home', icon: Home, label: 'Home' },
-  { to: '/explore', icon: Compass, label: 'Explore' },
-  { to: '/chat', icon: MessageCircle, label: 'Chat' },
-  { to: '/notifications', icon: Bell, label: 'Activity' },
+  { to: '/', icon: Home, label: 'Home', badge: null },
+  { to: '/explore', icon: Compass, label: 'Explore', badge: null },
+  { to: '/chat', icon: MessageCircle, label: 'Chat', badge: 3 },
+  { to: '/notifications', icon: Bell, label: 'Activity', badge: 5 },
 ];
 
 export default function Sidebar() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState('light');
   const navigate = useNavigate();
   const menuRef = useRef(null);
+  const { user, logout } = useAuthStore();
 
-  // Close dropdown if clicked outside
+  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -27,88 +35,223 @@ export default function Sidebar() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    logout();
     navigate('/login');
   };
 
-  const handleSettings = () => {
-    navigate('/setting');
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.classList.toggle('dark');
   };
 
   return (
-    <div className="hidden sm:flex fixed left-4 top-1/2 -translate-y-1/2 z-500">
+    <aside className="hidden lg:flex xl:flex sticky left-0 top-0 h-screen border-r border-gray-200 bg-[#f8f7f4] z-40">
       {/* Sidebar Container */}
-      <div className="group flex flex-col justify-between h-[65vh] bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-3xl
-                      px-3 py-4 transition-all duration-300 w-16 hover:w-52">
+      <div className="flex flex-col w-64 px-3 py-4">
+        
+        {/* Logo */}
+        <div className="flex items-center gap-2 px-3 mt-5 mb-10">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#4a9c6e] to-[#6ab8a0] 
+            flex items-center justify-center flex-shrink-0 shadow-md shadow-[#4a9c6e]/20">
+            <span className="text-white font-bold text-sm">B</span>
+          </div>
+          <span className="font-serif font-bold text-base bg-gradient-to-r from-[#4a9c6e] to-[#6ab8a0] 
+            bg-clip-text text-transparent whitespace-nowrap">
+            BondCircle
+          </span>
+        </div>
 
         {/* Navigation Items */}
-        <div className="flex flex-col gap-1">
-          {navItems.map(({ to, icon: Icon, label }) => (
+        <nav className="flex-1 flex flex-col gap-1">
+          {navItems.map(({ to, icon: Icon, label, badge }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-3 rounded-2xl transition-all duration-300 overflow-hidden
+                `relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg overflow-hidden
+                 transition-all duration-200 ease-out
                  ${isActive
-                   ? 'bg-accent text-white shadow-md scale-[1.04]'
-                   : 'text-gray-600 hover:bg-white hover:shadow hover:scale-[1.04]'
+                   ? 'bg-[#e8f5e9] text-[#2e7d32] font-medium'
+                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                  }`
               }
             >
-              <Icon size={22} className="flex-shrink-0 transition-transform duration-300 group-hover:rotate-6" />
-              <span className="whitespace-nowrap text-sm font-medium opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+              {/* Icon with badge */}
+              <div className="relative flex-shrink-0">
+                <Icon
+                  size={18}
+                  strokeWidth={2}
+                />
+                {badge && (
+                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 
+                    text-white text-[9px] font-bold rounded-full 
+                    flex items-center justify-center shadow-sm">
+                    {badge}
+                  </span>
+                )}
+              </div>
+
+              {/* Label */}
+              <span className="text-sm font-medium">
                 {label}
               </span>
             </NavLink>
           ))}
-        </div>
+        </nav>
 
-        {/* Profile + More Options */}
+        {/* Bottom Section */}
         <div className="flex flex-col gap-1 relative" ref={menuRef}>
-          {/* Profile */}
+          {/* User Profile Preview */}
+          {/* <div className="px-3 py-2 mb-1">
+            <div className="flex items-center gap-2.5">
+              <Avatar 
+                src={user?.avatar} 
+                alt={user?.name}
+                size="sm"
+                className="ring-1 ring-[#4a9c6e]/20"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-gray-800 truncate">
+                  {user?.name || 'User'}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">
+                  @{user?.username || 'username'}
+                </p>
+              </div>
+            </div>
+          </div> */}
+
+          {/* Profile Button */}
           <NavLink
-            to="/profile"
-            className="flex items-center gap-3 px-3 py-3 rounded-2xl text-gray-600 hover:bg-white hover:shadow hover:scale-[1.04] transition-all duration-300 overflow-hidden"
+            to={`/profile/${user?._id}`}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg 
+              text-gray-600 hover:bg-gray-50 hover:text-gray-900
+              transition-all duration-200"
           >
-            <User size={22} className="flex-shrink-0" />
-            <span className="whitespace-nowrap text-sm font-medium opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-              Profile
-            </span>
+            <User size={18} strokeWidth={2} className="flex-shrink-0" />
+            <span className="text-sm font-medium">Profile</span>
           </NavLink>
 
-          {/* More / Dropdown Trigger */}
+          {/* More Options */}
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-3 px-3 py-3 rounded-2xl text-gray-600 hover:bg-white hover:shadow hover:scale-[1.04] transition-all duration-300 overflow-hidden"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg 
+              text-gray-600 hover:bg-gray-50 hover:text-gray-900
+              transition-all duration-200"
           >
-            <MoreHorizontal size={22} className="flex-shrink-0" />
-            <span className="whitespace-nowrap text-sm font-medium opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-              More
-            </span>
+            <MoreHorizontal size={18} strokeWidth={2} className="flex-shrink-0" />
+            <span className="text-sm font-medium">More</span>
           </button>
 
           {/* Dropdown Menu */}
           <div
-            className={`absolute bottom-14 left-0 w-44 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden
-                        transition-all duration-300 transform ${
-                          profileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-                        }`}
+            className={`absolute bottom-16 left-0 w-52 
+              bg-white border border-gray-200 
+              rounded-xl shadow-lg shadow-gray-200/50
+              overflow-hidden
+              transition-all duration-200 ease-out transform origin-bottom-left ${
+                profileMenuOpen
+                  ? 'opacity-100 translate-y-0 scale-100'
+                  : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
+              }`}
           >
-            <button
-              onClick={handleSettings}
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-all duration-200 text-sm font-medium"
-            >
-              <Settings size={18} /> Settings
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-all duration-200 text-sm font-medium"
-            >
-              <LogOut size={18} /> Logout
-            </button>
+            {/* Menu Header */}
+            <div className="px-3 py-2 border-b border-gray-100">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Quick Actions
+              </p>
+            </div>
+
+            {/* Menu Items */}
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  navigate('/settings');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                  transition-all duration-200 text-xs font-medium"
+              >
+                <Settings size={16} />
+                <span>Settings</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigate('/saved');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                  transition-all duration-200 text-xs font-medium"
+              >
+                <Bookmark size={16} />
+                <span>Saved</span>
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                  transition-all duration-200 text-xs font-medium"
+              >
+                {theme === 'light' ? (
+                  <>
+                    <Moon size={16} />
+                    <span>Dark Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun size={16} />
+                    <span>Light Mode</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  navigate('/privacy');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                  transition-all duration-200 text-xs font-medium"
+              >
+                <Shield size={16} />
+                <span>Privacy</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigate('/help');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-gray-600 hover:bg-gray-50 hover:text-gray-900
+                  transition-all duration-200 text-xs font-medium"
+              >
+                <HelpCircle size={16} />
+                <span>Help & Support</span>
+              </button>
+            </div>
+
+            {/* Logout */}
+            <div className="border-t border-gray-100 py-1">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2
+                  text-red-600 hover:bg-red-50
+                  transition-all duration-200 text-xs font-medium"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

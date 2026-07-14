@@ -1,4 +1,3 @@
-// frontend/src/pages/ActivityDetail.jsx
 import {
   Heart, MessageCircle, Calendar, MapPin, ArrowLeft, Send,
   Users, X, Image as ImageIcon, Crown, CheckCheck, Clock, Wifi, WifiOff

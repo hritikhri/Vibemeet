@@ -7,9 +7,11 @@ exports.getFeed = async (req, res) => {
     const user = await User.findById(req.user.id);
     const activities = await Activity.find()
       .populate('creator', 'name avatar')
+      .populate('comments.user', 'name avatar usernae')
       .limit(15);
 
-    const suggestedUsers = await getSuggestedUsers(req, { json: () => {} }); // reuse logic
+    const suggestedUsers = await getSuggestedUsers(req); // reuse logic
+    // console.log(suggestedUsers)
 
     res.json({
       activities,

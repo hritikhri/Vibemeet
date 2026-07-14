@@ -1,42 +1,61 @@
-const mongoose = require('mongoose');
+// models/PrivateMessage.js
+const mongoose = require("mongoose");
 
 const privateMessageSchema = new mongoose.Schema({
-  from: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  from: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
   },
-  to: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  to: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
   },
-  text: { 
-    type: String, default:"",
+  text: {
+    type: String,
+    default: "",
   },
   image: {
-    type: String
+    type: String, // Cloudinary URL
   },
-  isRead: { 
-    type: Boolean, 
-    default: false 
+  voiceNote: {
+    type: String, // Cloudinary URL
   },
-  delivered: {           // NEW - for grey double tick
+  voiceDuration: {
+    type: Number,
+    default: 0,
+  },
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "PrivateMessage",
+    default: null,
+  },
+  isRead: {
     type: Boolean,
-    default: false
+    default: false,
   },
-  readAt: {              // NEW - optional
-    type: Date
+  delivered: {
+    type: Boolean,
+    default: false,
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
+  readAt: {
+    type: Date,
+  },
+  // NEW: soft delete support
+  deleted: {
+    type: Boolean,
+    default: false,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-// Index for fast conversation lookups
+// Indexes for performance
 privateMessageSchema.index({ from: 1, to: 1, createdAt: -1 });
-privateMessageSchema.index({ to: 1, read: 1 });
+privateMessageSchema.index({ to: 1, isRead: 1 });
+privateMessageSchema.index({ from: 1, delivered: 1 });
 
-
-module.exports = mongoose.model('PrivateMessage', privateMessageSchema);
+module.exports = mongoose.model("PrivateMessage", privateMessageSchema);

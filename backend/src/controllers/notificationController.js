@@ -48,18 +48,34 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
-// Create notification (internal helper - will be used by other controllers)
-exports.createNotification = async (userId, type, requireUserId, activityId, message) => {
+// backend/controllers/notificationController.js
+exports.createNotification = async (userId, type, fromUserId, activityId = null, message) => {
   try {
     const notification = await Notification.create({
       user: userId,
       type,
-      requireUser: requireUserId,
+      requireUser: fromUserId,
       activity: activityId,
-      message
+      message: message || "New notification",
+      read: false
     });
+
+    // Real-time push
+    const io = global.io;
+    if (io) {
+      io.to(`user_${userId}`).emit('newNotification', {
+        _id: notification._id,
+        type,
+        from: fromUserId,
+        message,
+        activity: activityId,
+        createdAt: notification.createdAt,
+        read: false
+      });
+    }
     return notification;
   } catch (error) {
-    console.error('Notification creation error:', error);
+    console.error('Notification creation failed:', error);
+    return null;
   }
 };

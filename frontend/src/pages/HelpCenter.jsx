@@ -41,60 +41,58 @@ export function HelpCenter() {
     if (type === 'email') {
       window.location.href = "mailto:support@vibemeet.com?subject=Help%20Request%20from%20Help%20Center";
     } else {
-      // Future: Integrate with real chat (Intercom, Crisp, Tawk.to, etc.)
       alert("Live Chat is currently under development.\n\nPlease email us at support@vibemeet.com");
     }
   };
 
   return (
-    <div className="min-h-screen py-12 px-4">
+    <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-3xl mx-auto">
         
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-6">
-            <HelpCircle className="w-9 h-9 text-indigo-600" />
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-zinc-800 rounded-3xl mb-6">
+            <HelpCircle className="w-11 h-11 text-blue-500" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">How can we help you?</h1>
-          <p className="text-gray-600 text-lg max-w-md mx-auto">
+          <h1 className="text-4xl font-semibold mb-4">How can we help you?</h1>
+          <p className="text-gray-400 text-lg max-w-md mx-auto">
             Find quick answers or get in touch with our support team.
           </p>
         </div>
 
         {/* FAQ Section */}
         <div className="mb-16">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900">Frequently Asked Questions</h2>
-            <Clock className="w-5 h-5 text-gray-400" />
+          <div className="flex items-center gap-3 mb-8">
+            <h2 className="text-2xl font-semibold">Frequently Asked Questions</h2>
+            <Clock className="w-5 h-5 text-gray-500" />
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {faqs.map((faq) => {
               const isOpen = activeFAQ === faq.id;
               return (
-                <div 
+                <div
                   key={faq.id}
-                  className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-md"
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"
                 >
                   <button
                     onClick={() => toggleFAQ(faq.id)}
-                    className="w-full px-6 py-5 text-left flex items-center justify-between group hover:bg-gray-50 transition-colors"
+                    className="w-full px-7 py-6 text-left flex items-center justify-between hover:bg-zinc-800/50 transition-all group"
                   >
-                    <h3 className="font-medium text-gray-900 pr-8 text-[17px] leading-tight">
+                    <h3 className="font-medium text-lg pr-10 leading-tight text-white">
                       {faq.question}
                     </h3>
                     <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                      <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                      <ChevronDown className="w-6 h-6 text-gray-400 group-hover:text-gray-300" />
                     </div>
                   </button>
-                  
-                  {/* Smooth Expand Animation */}
-                  <div 
+
+                  <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
                     }`}
                   >
-                    <div className="px-6 pb-6 pt-1 text-gray-600 leading-relaxed border-t border-gray-100">
+                    <div className="px-7 pb-8 pt-2 text-gray-400 leading-relaxed border-t border-zinc-800">
                       {faq.answer}
                     </div>
                   </div>
@@ -104,38 +102,37 @@ export function HelpCenter() {
           </div>
         </div>
 
-        {/* Contact Support Section */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Still need help?</h2>
-          <p className="text-gray-600 mb-8">
+        {/* Contact Support */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-10">
+          <h2 className="text-2xl font-semibold mb-3">Still need help?</h2>
+          <p className="text-gray-400 mb-10">
             Our friendly support team is here to help. Reach out anytime.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button 
+            <button
               onClick={() => handleContact('email')}
-              className="flex items-center justify-center gap-3 px-6 py-4 bg-gray-900 hover:bg-black text-white rounded-2xl font-medium transition-all active:scale-[0.985] shadow-sm"
+              className="flex items-center justify-center gap-3 px-8 py-4 bg-white hover:bg-gray-200 text-black rounded-2xl font-semibold transition-all active:scale-[0.985]"
             >
-              <Mail size={20} />
+              <Mail size={22} />
               Email Support
             </button>
 
-            <button 
+            <button
               onClick={() => handleContact('chat')}
-              className="flex items-center justify-center gap-3 px-6 py-4 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-2xl font-medium transition-all active:scale-[0.985]"
+              className="flex items-center justify-center gap-3 px-8 py-4 border border-zinc-700 hover:bg-zinc-800 text-white rounded-2xl font-semibold transition-all active:scale-[0.985]"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={22} />
               Live Chat
             </button>
           </div>
 
-          <div className="text-center mt-8">
+          <div className="text-center mt-10">
             <p className="text-xs text-gray-500">
-              Average response time: <span className="font-medium text-emerald-600">Under 2 hours</span>
+              Average response time: <span className="font-medium text-emerald-500">Under 2 hours</span>
             </p>
           </div>
         </div>
-
       </div>
     </div>
   );

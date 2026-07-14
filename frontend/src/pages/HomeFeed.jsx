@@ -1,32 +1,36 @@
 // frontend/src/pages/HomeFeed.jsx
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '../store/useAuthStore';
-import { useFeedStore } from '../store/useFeedStore';
-import BottomNav from '../components/layout/BottomNav';
-import Avatar from '../components/common/Avatar';
-import CreateActivityModal from '../components/activity/CreateActivityModal';
-import FeedCard from '../components/feed/FeedCard';
-import { Plus, Bell, Compass } from 'lucide-react';
-import Sidebar from '../components/layout/Sidebar';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { useAuthStore } from "../store/useAuthStore";
+import { useFeedStore } from "../store/useFeedStore";
+import BottomNav from "../components/layout/BottomNav";
+import Avatar from "../components/common/Avatar";
+import CreateActivityModal from "../components/activity/CreateActivityModal";
+import FeedCard from "../components/feed/FeedCard";
+import { Plus, Bell, Compass } from "lucide-react";
+import Sidebar from "../components/layout/Sidebar";
+import { useNavigate } from "react-router-dom";
+import SuggestedUserCard from "../components/feed/SuggestedUserCard";
+import api from "../lib/api";
 
 export default function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { activities, loading, loadFeed } = useFeedStore();
+  const { activities, loading, loadFeed, suggestedUsers } = useFeedStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => { loadFeed(); }, [loadFeed]);
-  console.log(activities)
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
+  // console.log(activities)
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen pb-28" style={{ background: "var(--bg)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 
@@ -44,7 +48,6 @@ export default function HomeFeed() {
         }
 
         * { font-family: 'Sora', sans-serif; }
-
         .serif { font-family: 'Instrument Serif', serif; }
 
         .feed-header {
@@ -60,11 +63,9 @@ export default function HomeFeed() {
         .mood-pill {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 6px 14px; border-radius: 100px;
-          background: var(--surface2);
-          border: 1px solid var(--border);
+          background: var(--surface2); border: 1px solid var(--border);
           font-size: 12px; font-weight: 500; color: var(--text2);
-          transition: all 0.2s;
-          cursor: pointer;
+          transition: all 0.2s; cursor: pointer;
         }
         .mood-pill:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
@@ -101,7 +102,6 @@ export default function HomeFeed() {
           font-size: 40px; margin-bottom: 24px;
         }
 
-        /* Stagger feed items */
         .feed-item { animation: fadeUp 0.4s ease both; }
         .feed-item:nth-child(1) { animation-delay: 0.05s; }
         .feed-item:nth-child(2) { animation-delay: 0.10s; }
@@ -127,124 +127,376 @@ export default function HomeFeed() {
           text-transform: uppercase; color: var(--muted);
           margin-bottom: 16px;
         }
+
+        /* ── Suggested panel row item (Instagram style) ── */
+        .sug-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 7px 0;
+        }
+        .sug-row + .sug-row {
+          border-top: 1px solid var(--border);
+        }
+        .sug-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .sug-avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          flex-shrink: 0; object-fit: cover;
+          background: var(--surface2);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 13px; font-weight: 600; color: var(--accent);
+          border: 1.5px solid var(--border);
+        }
+        .sug-name {
+          font-size: 12px; font-weight: 600; color: var(--text);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sug-dist {
+          font-size: 11px; color: var(--muted); margin-top: 1px;
+        }
+        .sug-connect-btn {
+          flex-shrink: 0;
+          padding: 5px 12px; border-radius: 8px;
+          background: transparent;
+          border: 1.5px solid var(--accent);
+          color: var(--accent);
+          font-size: 11px; font-weight: 600;
+          cursor: pointer; transition: all 0.18s;
+        }
+        .sug-connect-btn:hover {
+          background: var(--accent); color: white;
+        }
+
+        /* hide scrollbar utility */
+        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
 
-      <Sidebar />
-
-      {/* Header */}
-      <header className={`feed-header${scrolled ? ' scrolled' : ''}`}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: '14px 20px' }}
-          className="flex items-center justify-between">
-
-          {/* Wordmark - Changed to Friendship Theme */}
+      {/* ── Sticky Header ── */}
+      {/* <header className={`feed-header${scrolled ? " scrolled" : ""}`}>
+        <div
+          style={{ maxWidth: 1060, margin: "0 auto", padding: "14px 24px" }}
+          className="flex items-center justify-between"
+        >
           <div>
-            <span className="serif" style={{ fontSize: 26, color: 'var(--text)', letterSpacing: '-0.5px' }}>
-              Bond<span style={{ color: 'var(--accent)' }}>Circle</span>
+            <span
+              className="serif"
+              style={{
+                fontSize: 26,
+                color: "var(--text)",
+                letterSpacing: "-0.5px",
+              }}
+            >
+              Bond<span style={{ color: "var(--accent)" }}>Circle</span>
             </span>
           </div>
 
-          {/* Right controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
-              onClick={() => navigate('/explore')}
+              onClick={() => navigate("/explore")}
               style={{
-                width: 38, height: 38, borderRadius: 12,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text2)', transition: 'all 0.2s',
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text2)",
+                transition: "all 0.2s",
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--surface)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--surface2)")
+              }
             >
               <Compass size={17} />
             </button>
 
             <button
-              onClick={() => navigate('/notifications')}
+              onClick={() => navigate("/notifications")}
               style={{
-                width: 38, height: 38, borderRadius: 12,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text2)', transition: 'all 0.2s',
-                position: 'relative',
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text2)",
+                transition: "all 0.2s",
+                position: "relative",
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--surface)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--surface2)")
+              }
             >
               <Bell size={17} />
             </button>
 
-            <span className="mood-pill" onClick={() => navigate('/setting')}>
+            <span className="mood-pill" onClick={() => navigate("/setting")}>
               <span>✦</span>
-              {user?.mood || 'Set vibe'}
+              {user?.mood || "Set vibe"}
             </span>
 
-            <div className="avatar-ring" onClick={() => navigate(`/profile/${user?._id}`)}>
+            <div
+              className="avatar-ring"
+              onClick={() => navigate(`/profile/${user?._id}`)}
+            >
               <div className="avatar-ring-inner">
                 <Avatar src={user?.avatar} size="sm" />
               </div>
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
-      {/* Feed content */}
-      <main style={{ maxWidth: 680, margin: '0 auto', padding: '24px 16px 0' }}>
-
-        {/* Greeting strip */}
-        <div style={{ marginBottom: 28 }}>
-          <p className="serif" style={{ fontSize: 22, color: 'var(--text)', lineHeight: 1.3 }}>
-            Good {getGreeting()},{' '}
-            <span style={{ color: 'var(--accent)' }}>{user?.name?.split(' ')[0]}</span> ✦
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            Here's what's happening with your friends nearby
-          </p>
-        </div>
-
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} className="skeleton" style={{ height: 240 + i * 20 }} />
-            ))}
-          </div>
-        ) : activities.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">👥</div>
-            <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
-              No activities yet
-            </p>
-            <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 260, lineHeight: 1.6 }}>
-              Create your first hangout and invite your friends to join
-            </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              style={{
-                marginTop: 24, padding: '12px 28px', borderRadius: 14,
-                background: 'var(--accent)', color: 'white', border: 'none',
-                fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(74,156,110,0.3)',
-              }}
+      {/* ── Two-column body ── */}
+      <div
+        style={{
+          maxWidth: 1060,
+          margin: "0 auto",
+          padding: "24px 24px 0",
+          display: "flex",
+          gap: 40,
+          alignItems: "flex-start",
+        }}
+      >
+        {/* ── LEFT: Feed ── */}
+<main style={{ flex: 1, minWidth: 0, maxWidth: 680, overflowY: "auto", height: "calc(100vh - 80px)", scrollbarWidth: "none", msOverflowStyle: "none" }} className="hide-scrollbar">          <div style={{ marginBottom: 28 }}>
+            {/* <p
+              className="serif"
+              style={{ fontSize: 22, color: "var(--text)", lineHeight: 1.3 }}
             >
-              Create hangout
-            </button>
+              Good {getGreeting()},{" "}
+              <span style={{ color: "var(--accent)" }}>
+                {user?.name?.split(" ")[0]}
+              </span>{" "}
+              ✦
+            </p> */}
+            {/* <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+              Here's what's happening with your friends nearby
+            </p> */}
           </div>
-        ) : (
-          <>
-            <p className="section-label">Your friend feed</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {activities.map((activity, i) => (
-                <div key={activity._id} className="feed-item">
-                  <FeedCard
-                    activity={activity}
-                    onJoin={() => navigate(`/activity/${activity._id}`)}
-                  />
-                </div>
+
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="skeleton"
+                  style={{ height: 240 + i * 20 }}
+                />
               ))}
             </div>
-          </>
-        )}
-      </main>
+          ) : activities.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <p
+                style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  marginBottom: 8,
+                }}
+              >
+                No activities yet
+              </p>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "var(--muted)",
+                  maxWidth: 260,
+                  lineHeight: 1.6,
+                }}
+              >
+                Create your first hangout and invite your friends to join
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                style={{
+                  marginTop: 24,
+                  padding: "12px 28px",
+                  borderRadius: 14,
+                  background: "var(--accent)",
+                  color: "white",
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 20px rgba(74,156,110,0.3)",
+                }}
+              >
+                Create hangout
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* <p className="section-label">Your friend feed</p> */}
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 1 }}
+              >
+                {activities.map((activity) => (
+                  <div key={activity._id} className="feed-item">
+                    <FeedCard
+                      activity={activity}
+                      onJoin={() => navigate(`/activity/${activity._id}`)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </main>
+
+        {/* ── RIGHT: Suggested users — Instagram-style sticky panel ── */}
+<div className="hidden sm:flex" style={{  position: "sticky", top: 60 }}>          {suggestedUsers?.length > 0 && (
+            <aside
+              style={{
+                width: 300,
+                flexShrink: 0,
+                position: "sticky",
+                top: 80, // clears the sticky header
+                alignSelf: "flex-start",
+              }}
+            >
+              {/* Current user mini-profile strip */}
+              <div
+                onClick={() => navigate(`/profile/${user?._id}`)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 20,
+                  cursor: "pointer",
+                }}
+              >
+                <div className="avatar-ring">
+                  <div className="avatar-ring-inner">
+                    <Avatar src={user?.avatar} size="md" />
+                  </div>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--text)",
+                    }}
+                  >
+                    {user?.name}
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {user?.mood || "No vibe set"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Suggested header row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <span className="section-label" style={{ marginBottom: 0 }}>
+                  Suggested for you
+                </span>
+                <button
+                  onClick={() => navigate("/explore")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--text)",
+                    cursor: "pointer",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  See all
+                </button>
+              </div>
+
+              {/* Suggested user rows */}
+              <div>
+                {suggestedUsers.slice(0, 6).map((suggestedUser) => (
+                  <div
+                    key={suggestedUser._id}
+                    onClick={() => navigate(`/profile/${suggestedUser._id}`)}
+                    className="sug-row"
+                  >
+                    <div
+                      className="sug-info"
+                      style={{ cursor: "pointer" }}
+                      // onClick={() => navigate(`/profile/${suggestedUser._id}`)}
+                    >
+                      {/* Avatar */}
+                      <div className="sug-avatar">
+                        {suggestedUser.avatar ? (
+                          <img
+                            src={suggestedUser.avatar}
+                            alt={suggestedUser.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          suggestedUser.name?.[0]?.toUpperCase()
+                        )}
+                      </div>
+
+                      {/* Name + distance */}
+                      <div style={{ minWidth: 0 }}>
+                        <p className="sug-name">{suggestedUser.name}</p>
+                        <p className="sug-dist">
+                          {suggestedUser.distance?.toFixed(1)} km away
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Connect button */}
+                    <button className="sug-connect-btn">Connect</button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer links */}
+              <p
+                style={{
+                  fontSize: 10,
+                  color: "var(--muted)",
+                  marginTop: 24,
+                  lineHeight: 1.8,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                About · Help · Privacy · Terms
+              </p>
+            </aside>
+          )}
+        </div>
+      </div>
 
       {/* Create FAB */}
       <button className="create-btn" onClick={() => setShowCreateModal(true)}>
@@ -264,7 +516,7 @@ export default function HomeFeed() {
 
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'morning';
-  if (h < 17) return 'afternoon';
-  return 'evening';
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
 }

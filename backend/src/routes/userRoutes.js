@@ -2,6 +2,7 @@ const express =require ('express');
 const { protect }= require( '../middleware/auth.js');
 const userController= require( '../controllers/userController.js');
 const upload = require('../config/multer.js');
+const { addInterest, removeInterest, getInterestedUsers, getMyInterests } = require( '../controllers/interestController.js');
 
 const router = express.Router();
 
@@ -22,6 +23,11 @@ router.post('/unfriend', protect, userController.unfriend);
 router.post('/:id/friend-request', protect, userController.sendFriendRequest);
 router.post('/friend-request/:id/accept', protect, userController.acceptFriendRequest);
 router.post('/friend-request/:id/reject', protect, userController.rejectFriendRequest);
+
+router.post('/:id/interest',   protect, addInterest);
+router.delete('/:id/interest', protect, removeInterest);
+router.get('/:id/interested',  protect, getInterestedUsers);
+router.get('/:id/my-interests',      protect, getMyInterests);      // who :id is interested in
 
 
 module.exports= router;

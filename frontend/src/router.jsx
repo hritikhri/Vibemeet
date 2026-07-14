@@ -1,6 +1,7 @@
 // frontend/src/router.jsx
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import { useAuthStore } from './store/useAuthStore';
 
 // Pages
 import Landing from './pages/Landing';
@@ -19,22 +20,46 @@ import OurMainLayout from './components/ui/OurMainLayout';
 import SignupSuccess from './pages/SignupSuccess';
 import ForgotPassword from './pages/ForgotPassword';
 import SettingsPage from './pages/SettingsPage';
+import NotFound from './pages/error/NotFound';
+import Unauthorized from './pages/error/Unauthorized';
+import ChatLayout from './pages/Chatlayout ';
+import Terms from './pages/terms/Terms';
+import Contact from './pages/terms/Contact';
+import Privacy from './pages/terms/Privacy';
 
+export default function RootRoute() {
+  const { isAuthenticated, isCheckingAuth } = useAuthStore();
+
+  if (isCheckingAuth) {
+    return <div>Loading...</div>; // Replace with your loader/spinner
+  }
+
+  if (isAuthenticated) {
+    return (
+      <OurMainLayout>
+        <HomeFeed />
+      </OurMainLayout>
+    );
+  }
+
+  return <Landing />;
+}
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Landing /> },
+  { path: "/", element: <RootRoute /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Signup /> },
   { path: "/verify-otp", element: <OtpVerification /> },
   { path:"/verify-otp-success", element: <SignupSuccess/> },
   { path:"/forgot-password", element: <ForgotPassword/> },
   { path:"/setting", element: <SettingsPage/> },
-  { 
-    path: "/home", 
-    element: <ProtectedRoute><HomeFeed /></ProtectedRoute> 
-  },
-  { 
-    path: "/explore", 
+  { path : "/contact", element:<Contact/> }, 
+  { path:"privacy", element:<Privacy/> },
+  { path:"/terms", element:<Terms/> },
+  // { path: "/", 
+  //   element: <ProtectedRoute><OurMainLayout><HomeFeed /></OurMainLayout></ProtectedRoute> 
+  // },
+  { path: "/explore", 
     element: <ProtectedRoute><OurMainLayout><Explore /></OurMainLayout></ProtectedRoute> 
   },
   { 
@@ -43,13 +68,15 @@ export const router = createBrowserRouter([
   },
   { 
     path: "/chat", 
-    element: <ProtectedRoute><OurMainLayout><PrivateChat /></OurMainLayout></ProtectedRoute> 
+    element: <ProtectedRoute><OurMainLayout><ChatLayout /></OurMainLayout></ProtectedRoute> 
   },
+  { path: "/chat/:otherUserId", element: <ProtectedRoute><OurMainLayout><ChatLayout /></OurMainLayout></ProtectedRoute> },
   { 
     path: "/notifications", 
     element: <ProtectedRoute><OurMainLayout><Notifications /></OurMainLayout></ProtectedRoute> 
   },
   { 
+    errorElement:<Unauthorized/>,
     path: "/profile", 
     element: <ProtectedRoute><OurMainLayout><Profile /></OurMainLayout></ProtectedRoute> 
   },
@@ -58,13 +85,11 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><OurMainLayout><Profile /></OurMainLayout></ProtectedRoute> 
   },
   { 
-    path: "/edit-profile", 
-    element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
-  },
-  { 
     path: "/settings", 
     element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
   },
-  { path: "/chat/private/:otherUserId", element: <ProtectedRoute><OurMainLayout><PrivateChat /></OurMainLayout></ProtectedRoute> }
+  {
+    path:"*", element:<NotFound/>
+  },
 ]);
 

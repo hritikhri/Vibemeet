@@ -1,156 +1,161 @@
-const mongoose =require ('mongoose');
-const dotenv= require ('dotenv');
-const User =require ('../models/User.js');
-const Activity= require ('../models/Activity.js');
-const Notification= require ('../models/Notification.js');
+// backend/src/utils/seed.js
+const mongoose= require ( 'mongoose');
+const bcrypt = require( 'bcryptjs');
+const dotenv = require( 'dotenv');
 
 dotenv.config();
+
+const User= require ( '../models/User.js');
+const Activity = require( '../models/Activity.js');
+const PrivateMessage = require( '../models/PrivateMessage.js');
+const Notification = require( '../models/Notification.js');
 
 const seedData = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('Connected to MongoDB for seeding...');
+    console.log('🟢 Connected to MongoDB');
 
     // Clear existing data
     await User.deleteMany({});
     await Activity.deleteMany({});
+    await PrivateMessage.deleteMany({});
     await Notification.deleteMany({});
+    console.log('🗑️  Cleared previous data');
 
-    console.log('Cleared existing collections');
+    // ==================== 20 REALISTIC USERS ====================
+    const userData = [
+      { name: "Priya Sharma", username: "priya_sharma", email: "priya@example.com", avatar: "https://i.pravatar.cc/150?u=priya", bio: "Love hiking and meeting new people ✨", interests: ["hiking", "travel", "music"], mood: "social" },
+      { name: "Arjun Rao", username: "arjun_rao", email: "arjun@example.com", avatar: "https://i.pravatar.cc/150?u=arjun", bio: "Tech enthusiast | Startup founder", interests: ["tech", "coding", "startup"], mood: "exploring" },
+      { name: "Ananya Gupta", username: "ananya_g", email: "ananya@example.com", avatar: "https://i.pravatar.cc/150?u=ananya", bio: "Foodie | Photographer 📸", interests: ["food", "photography", "art"], mood: "social" },
+      { name: "Rohan Mehra", username: "rohan_m", email: "rohan@example.com", avatar: "https://i.pravatar.cc/150?u=rohan", bio: "Fitness freak | Marathon runner", interests: ["fitness", "running", "yoga"], mood: "bored" },
+      { name: "Sneha Kapoor", username: "sneha_k", email: "sneha@example.com", avatar: "https://i.pravatar.cc/150?u=sneha", bio: "Book lover | Writer", interests: ["reading", "writing", "literature"], mood: "lonely" },
+      { name: "Vikram Singh", username: "vikram_s", email: "vikram@example.com", avatar: "https://i.pravatar.cc/150?u=vikram", bio: "Music producer | Guitarist", interests: ["music", "guitar", "production"], mood: "social" },
+      { name: "Ishita Verma", username: "ishita_v", email: "ishita@example.com", avatar: "https://i.pravatar.cc/150?u=ishita", bio: "Travel blogger | Digital nomad", interests: ["travel", "blogging", "photography"], mood: "exploring" },
+      { name: "Karan Malhotra", username: "karan_m", email: "karan@example.com", avatar: "https://i.pravatar.cc/150?u=karan", bio: "Entrepreneur | Coffee addict", interests: ["business", "coffee", "startup"], mood: "bored" },
+      { name: "Mehak Jain", username: "mehak_j", email: "mehak@example.com", avatar: "https://i.pravatar.cc/150?u=mehak", bio: "Dancer | Choreographer", interests: ["dance", "music", "fitness"], mood: "social" },
+      { name: "Aryan Khanna", username: "aryan_k", email: "aryan@example.com", avatar: "https://i.pravatar.cc/150?u=aryan", bio: "Photographer | Filmmaker", interests: ["photography", "cinema", "art"], mood: "exploring" },
+      { name: "Riya Patel", username: "riya_p", email: "riya@example.com", avatar: "https://i.pravatar.cc/150?u=riya", bio: "Yoga teacher | Wellness coach", interests: ["yoga", "wellness", "meditation"], mood: "social" },
+      { name: "Devansh Sharma", username: "devansh_s", email: "devansh@example.com", avatar: "https://i.pravatar.cc/150?u=devansh", bio: "Gamer | Streamer", interests: ["gaming", "tech", "esports"], mood: "bored" },
+      { name: "Nisha Reddy", username: "nisha_r", email: "nisha@example.com", avatar: "https://i.pravatar.cc/150?u=nisha", bio: "Fashion designer | Stylist", interests: ["fashion", "design", "art"], mood: "social" },
+      { name: "Saanvi Gupta", username: "saanvi_g", email: "saanvi@example.com", avatar: "https://i.pravatar.cc/150?u=saanvi", bio: "Animal lover | Volunteer", interests: ["animals", "nature", "volunteering"], mood: "lonely" },
+      { name: "Yash Malhotra", username: "yash_m", email: "yash@example.com", avatar: "https://i.pravatar.cc/150?u=yash", bio: "Cricket player | Sports lover", interests: ["cricket", "sports", "fitness"], mood: "social" },
+      { name: "Tara Singh", username: "tara_s", email: "tara@example.com", avatar: "https://i.pravatar.cc/150?u=tara", bio: "Chef | Food content creator", interests: ["cooking", "food", "travel"], mood: "exploring" },
+      { name: "Aarav Rao", username: "aarav_r", email: "aarav@example.com", avatar: "https://i.pravatar.cc/150?u=aarav", bio: "AI engineer | Tech geek", interests: ["ai", "tech", "coding"], mood: "bored" },
+      { name: "Kiara Mehra", username: "kiara_m", email: "kiara@example.com", avatar: "https://i.pravatar.cc/150?u=kiara", bio: "Content creator | Influencer", interests: ["content", "socialmedia", "fashion"], mood: "social" },
+      { name: "Reyansh Kapoor", username: "reyansh_k", email: "reyansh@example.com", avatar: "https://i.pravatar.cc/150?u=reyansh", bio: "Musician | Singer", interests: ["music", "singing", "guitar"], mood: "social" },
+      { name: "Aadhya Verma", username: "aadhya_v", email: "aadhya@example.com", avatar: "https://i.pravatar.cc/150?u=aadhya", bio: "Psychology student | Writer", interests: ["psychology", "writing", "reading"], mood: "lonely" }
+    ];
 
-    // ==================== USERS ====================
-    const users = await User.create([
-      {
-        name: "Priya Sharma",
-        username: "priya_vibes",
-        email: "priya@example.com",
-        password: "$2a$10$dummyhash1234567890", // dummy hash
-        avatar: "https://i.pravatar.cc/300?u=priya",
-        bio: "Coffee lover | Weekend hiker | Always up for new adventures",
-        interests: ["hiking", "coffee", "photography", "music"],
-        mood: "social",
-        location: { lat: 28.6139, lng: 77.2090 } // Delhi
-      },
-      {
-        name: "Arjun Mehta",
-        username: "arjun_runs",
-        email: "arjun@example.com",
-        password: "$2a$10$dummyhash1234567890",
-        avatar: "https://i.pravatar.cc/300?u=arjun",
-        bio: "Morning runner | Tech enthusiast | Looking for running buddies",
-        interests: ["running", "fitness", "tech", "music"],
-        mood: "exploring",
-        location: { lat: 28.6353, lng: 77.2250 }
-      },
-      {
-        name: "Ananya Kapoor",
-        username: "ananya_art",
-        email: "ananya@example.com",
-        password: "$2a$10$dummyhash1234567890",
-        avatar: "https://i.pravatar.cc/300?u=ananya",
-        bio: "Artist | Bookworm | Love painting & deep conversations",
-        interests: ["art", "books", "painting", "writing"],
-        mood: "social",
-        location: { lat: 28.5921, lng: 77.1854 }
-      },
-      {
-        name: "Rohan Singh",
-        username: "rohan_cook",
-        email: "rohan@example.com",
-        password: "$2a$10$dummyhash1234567890",
-        avatar: "https://i.pravatar.cc/300?u=rohan",
-        bio: "Home chef | Food explorer | Always hosting potlucks",
-        interests: ["cooking", "food", "travel", "boardgames"],
-        mood: "bored",
-        location: { lat: 28.7041, lng: 77.1025 }
-      }
-    ]);
+    const createdUsers = [];
+    for (const u of userData) {
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      const user = await User.create({
+        ...u,
+        password: hashedPassword,
+        location: { lat: 28.6139 + (Math.random() * 0.1 - 0.05), lng: 77.2090 + (Math.random() * 0.1 - 0.05) }
+      });
+      createdUsers.push(user);
+    }
 
-    console.log(`✅ Created ${users.length} users`);
+    console.log(`✅ Created ${createdUsers.length} users`);
 
-    // ==================== ACTIVITIES ====================
-    const activities = await Activity.create([
-      {
-        title: "Morning Trail Run at Ridge",
-        description: "Easy 5km trail run followed by coffee. All levels welcome! Let's beat the heat.",
-        creator: users[1]._id,
-        participants: [users[1]._id, users[0]._id],
-        location: { lat: 28.6200, lng: 77.1900 },
-        time: new Date(Date.now() + 1000 * 60 * 60 * 18), // Tomorrow morning
-        interests: ["running", "fitness"],
-        likes: [users[0]._id]
-      },
-      {
-        title: "Sunday Sunset Painting Session",
-        description: "Bring your sketchbook or canvas. All materials provided. Perfect for beginners too!",
-        creator: users[2]._id,
-        participants: [users[2]._id],
-        location: { lat: 28.5800, lng: 77.2200 },
-        time: new Date(Date.now() + 1000 * 60 * 60 * 30),
-        interests: ["art", "painting"],
-        likes: []
-      },
-      {
-        title: "Potluck Night @ My Terrace",
-        description: "Everyone brings one dish. Great music, board games, and conversations guaranteed.",
-        creator: users[3]._id,
-        participants: [users[3]._id, users[0]._id, users[2]._id],
-        location: { lat: 28.7100, lng: 77.1000 },
-        time: new Date(Date.now() + 1000 * 60 * 60 * 50),
-        interests: ["cooking", "food", "boardgames"],
-        likes: [users[0]._id, users[2]._id]
-      },
-      {
-        title: "Photography Walk - Old Delhi",
-        description: "Capture the magic of Old Delhi streets. Golden hour photography + street food.",
-        creator: users[0]._id,
-        participants: [users[0]._id],
-        location: { lat: 28.6560, lng: 77.2300 },
-        time: new Date(Date.now() + 1000 * 60 * 60 * 12),
-        interests: ["photography", "travel"],
-        likes: [users[1]._id]
-      }
-    ]);
+// ==================== 100 ACTIVITIES ====================
+const activityTitles = [
+  "Morning Hike at Aravalli Hills", "Sunday Music Jam Session", "Street Food Crawl in Old Delhi",
+  "Tech Talk & Networking", "Yoga in the Park", "Photography Walk", "Board Game Night",
+  "Startup Pitch Meetup", "Dance Workshop", "Book Club Discussion", "Cycling Adventure",
+  "Cooking Masterclass", "Standup Comedy Open Mic", "Basketball Pickup Game", "Art & Craft Workshop"
+];
 
-    console.log(`✅ Created ${activities.length} activities`);
+// Expanded image pool (more variety)
+const activityImages = [
+  "https://picsum.photos/id/1015/800/600", // hike
+  "https://picsum.photos/id/106/800/600",  // music
+  "https://picsum.photos/id/292/800/600",  // food
+  "https://picsum.photos/id/367/800/600",  // tech
+  "https://picsum.photos/id/1018/800/600", // yoga
+  "https://picsum.photos/id/133/800/600",  // photography
+  "https://picsum.photos/id/201/800/600",  // games
+  "https://picsum.photos/id/669/800/600",  // startup
+  "https://picsum.photos/id/870/800/600",  // dance
+  "https://picsum.photos/id/1016/800/600", // book
+  "https://picsum.photos/id/145/800/600",  // nature
+  "https://picsum.photos/id/201/800/600",  // city
+  "https://picsum.photos/id/251/800/600",  // food 2
+  "https://picsum.photos/id/870/800/600",  // people
+  "https://picsum.photos/id/1005/800/600", // landscape
+];
+
+for (let i = 1; i <= 100; i++) {
+  const creator = createdUsers[Math.floor(Math.random() * createdUsers.length)];
+
+  // Randomly decide number of images: 1, 2, or 3
+  const numImages = Math.floor(Math.random() * 3) + 1; // 1 to 3
+
+  // Pick unique random images
+  const shuffled = [...activityImages].sort(() => 0.5 - Math.random());
+  const selectedImages = shuffled.slice(0, numImages);
+
+  const activity = await Activity.create({
+    title: `${activityTitles[Math.floor(Math.random() * activityTitles.length)]} #${i}`,
+    description: `A fun activity to meet like-minded people and create great memories! Join us for an amazing time.`,
+    creator: creator._id,
+    images: selectedImages,                    // ← Now an array
+    location: {
+      lat: 28.6139 + (Math.random() * 0.15 - 0.075),
+      lng: 77.2090 + (Math.random() * 0.15 - 0.075)
+    },
+    time: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000),
+    interests: ["hiking", "music", "food", "tech", "fitness", "art"][Math.floor(Math.random() * 6)],
+    likes: createdUsers.slice(0, Math.floor(Math.random() * 12)).map(u => u._id),
+    messages: Array.from({ length: Math.floor(Math.random() * 12) + 4 }, () => ({
+      sender: createdUsers[Math.floor(Math.random() * createdUsers.length)]._id,
+      text: `This is an awesome activity! ${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date(Date.now() - Math.random() * 86400000 * 5)
+    }))
+  });
+}
+
+console.log(`✅ Created 100 activities with 1-3 random images each`);
+    console.log(`✅ Created 100 activities with messages, likes, etc.`);
+
+    // ==================== PRIVATE MESSAGES ====================
+    for (let i = 0; i < 80; i++) {
+      const from = createdUsers[Math.floor(Math.random() * createdUsers.length)];
+      const to = createdUsers[Math.floor(Math.random() * createdUsers.length)];
+      if (from._id.toString() === to._id.toString()) continue;
+
+      await PrivateMessage.create({
+        from: from._id,
+        to: to._id,
+        text: `Hey! How are you doing? ${i}`,
+        createdAt: new Date(Date.now() - Math.random() * 86400000 * 10)
+      });
+    }
+
+    console.log(`✅ Created private messages`);
 
     // ==================== NOTIFICATIONS ====================
-    await Notification.create([
-      {
-        user: users[0]._id,
-        type: "request_accepted",
-        requireUser: users[1]._id,
-        activity: activities[0]._id,
-        message: "Your request to join Morning Trail Run was accepted!",
-        read: false
-      },
-      {
-        user: users[2]._id,
-        type: "invite",
-        requireUser: users[3]._id,
-        activity: activities[2]._id,
-        message: "Rohan invited you to Potluck Night @ My Terrace",
-        read: false
-      },
-      {
-        user: users[1]._id,
-        type: "message",
-        requireUser: users[0]._id,
-        activity: activities[0]._id,
-        message: "New message in Morning Trail Run group",
-        read: true
-      }
-    ]);
+    for (let i = 0; i < 120; i++) {
+      const user = createdUsers[Math.floor(Math.random() * createdUsers.length)];
+      await Notification.create({
+        user: user._id,
+        type: ['like', 'comment', 'friend_request', 'message'][Math.floor(Math.random() * 4)],
+        from: createdUsers[Math.floor(Math.random() * createdUsers.length)]._id,
+        message: 'Someone interacted with your activity!',
+        read: Math.random() > 0.5
+      });
+    }
 
-    console.log('✅ Created sample notifications');
+    console.log(`✅ Created notifications`);
 
     console.log('\n🎉 SEEDING COMPLETED SUCCESSFULLY!');
-    console.log('You can now login with any of these emails:');
-    users.forEach(u => console.log(`→ ${u.email}`));
+    console.log('20 Users + 100 Activities + Messages + Likes + Comments + Notifications + Private Chats');
+    console.log('You can now login with any email (password: 123456)');
 
     process.exit(0);
-  } catch (error) {
-    console.error('❌ Seeding failed:', error);
+  } catch (err) {
+    console.error('❌ Seeding failed:', err);
     process.exit(1);
   }
 };

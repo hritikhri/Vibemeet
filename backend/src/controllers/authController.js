@@ -5,9 +5,9 @@ const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
 const dotenv = require("dotenv").config();
 const crypto = require("crypto");
+const logger = require('../config/logger');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: 587,
@@ -352,6 +352,7 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user);
 
+    // logger.info('User logged in', { userId: req.user.id });
     res.json({
       token,
       user: {
@@ -359,8 +360,10 @@ exports.login = async (req, res) => {
         password: undefined,
       },
     });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
+    logger.error('Failed to send message', { error: err.message, stack: err.stack });
   }
 };
 

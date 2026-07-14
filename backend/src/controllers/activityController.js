@@ -1,23 +1,104 @@
 const Activity = require("../models/Activity.js");
 const User = require("../models/User.js");
-const Notification = require('../models/Notification.js');
-const cloudinary = require('../config/cloudinary.js');
-const streamifier = require('streamifier');
-const { calculateFeedScore, calculateExploreScore } = require("../utils/algorithms.js");
+const Notification = require("../models/Notification.js");
+const cloudinary = require("../config/cloudinary.js");
+const streamifier = require("streamifier");
+const {
+  calculateFeedScore,
+  calculateExploreScore,
+} = require("../utils/algorithms.js");
 const haversineDistance = require("../utils/haversine.js");
+
+const uploadToCloudinary = (buffer, mimetype) => {
+  return new Promise((resolve, reject) => {
+    const ext = mimetype.split("/")[1] || "jpg";
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "activities",
+        resource_type: "image",
+        format: ext,
+        transformation: [
+          {
+            width: 1080,
+            height: 720,
+            crop: "fill",
+            gravity: "auto",
+            quality: "auto:good",
+          },
+        ],
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      },
+    );
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+};
 
 exports.createActivity = async (req, res) => {
   try {
+    const { title, description, time, interests, location } = req.body;
+    console.log(req)
+    // ── Parse JSON fields sent as strings from FormData ──
+    let parsedInterests = [];
+    let parsedLocation = { lat: 28.6139, lng: 77.209 }; // Delhi fallback
+
+    try {
+      parsedInterests = interests ? JSON.parse(interests) : [];
+    } catch {
+      /* ignore */
+    }
+    try {
+      parsedLocation = location ? JSON.parse(location) : parsedLocation;
+    } catch {
+      /* ignore */
+    }
+
+    // ── Cloudinary image upload ──
+    let imageUrl = null;
+    let imagePublicId = null;
+    console.log(req.file)
+    if (req.file) {
+      try {
+        const { url, publicId } = await uploadToCloudinary(
+          req.file.buffer,
+          req.file.mimetype,
+        );
+        imageUrl = url;
+        imagePublicId = publicId;
+        console.log(imageUrl)
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr);
+        return res
+          .status(500)
+          .json({ message: "Image upload failed. Please try again." });
+      }
+    }
+    if(!req.file){
+      console.log("image file is not recived")
+    }
+
     const activity = await Activity.create({
-      ...req.body,
+      title,
+      description,
+      time: time ? new Date(time) : new Date(),
+      interests: parsedInterests,
+      location: parsedLocation,
+      image: imageUrl,
+      imagePublicId,
       creator: req.user.id,
       participants: [req.user.id],
     });
+    console.log(activity)
+    // Add to user's joinedActivities
     await User.findByIdAndUpdate(req.user.id, {
       $push: { joinedActivities: activity._id },
     });
+
     res.status(201).json(activity);
   } catch (error) {
+    console.error("createActivity error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -29,30 +110,32 @@ exports.getAllActivities = async (req, res) => {
     let activities = await Activity.find()
       .populate("creator", "name avatar username")
       .populate({
-        path: "comments.user",  select: "name avatar username"                  // First populate the comments array
+        path: "comments.user",
+        select: "name avatar username", // First populate the comments array
       })
       .sort({ createdAt: -1 })
-      .lean();                               // Important for performance + easier object handling
+      .lean(); // Important for performance + easier object handling
     // const populated = await activity.populate({ path: "comments.user", select: "name avatar" });
 
     const now = Date.now();
 
     activities = activities.map((act) => {
       const distance = haversineDistance(
-        user.location.lat, 
+        user.location.lat,
         user.location.lng,
-        act.location.lat, 
-        act.location.lng
+        act.location.lat,
+        act.location.lng,
       );
 
-      return { 
-        ...act, 
-        distance 
+      return {
+        ...act,
+        distance,
       };
     });
 
-    activities.sort((a, b) => 
-      calculateFeedScore(b, user, now) - calculateFeedScore(a, user, now)
+    activities.sort(
+      (a, b) =>
+        calculateFeedScore(b, user, now) - calculateFeedScore(a, user, now),
     );
 
     res.json(activities);
@@ -84,15 +167,19 @@ exports.exploreActivities = async (req, res) => {
     activities = activities
       .map((act) => {
         const distance = haversineDistance(
-          user.location.lat, user.location.lng,
-          act.location.lat, act.location.lng,
+          user.location.lat,
+          user.location.lng,
+          act.location.lat,
+          act.location.lng,
         );
         return { ...act.toObject(), distance };
       })
       .filter((act) => act.distance <= Number(radius));
 
     activities.sort(
-      (a, b) => calculateExploreScore(b, user, now) - calculateExploreScore(a, user, now),
+      (a, b) =>
+        calculateExploreScore(b, user, now) -
+        calculateExploreScore(a, user, now),
     );
 
     // Search users by name/username separately
@@ -109,12 +196,20 @@ exports.exploreActivities = async (req, res) => {
         .limit(10);
 
       // Check friend/follow status for each user
-      const currentUser = await User.findById(req.user.id).select("friends following sentFriendRequests");
+      const currentUser = await User.findById(req.user.id).select(
+        "friends following sentFriendRequests",
+      );
       users = users.map((u) => ({
         ...u.toObject(),
-        isFriend: currentUser.friends.some(f => f.toString() === u._id.toString()),
-        isFollowing: currentUser.following.some(f => f.toString() === u._id.toString()),
-        requestSent: currentUser.sentFriendRequests.some(f => f.toString() === u._id.toString()),
+        isFriend: currentUser.friends.some(
+          (f) => f.toString() === u._id.toString(),
+        ),
+        isFollowing: currentUser.following.some(
+          (f) => f.toString() === u._id.toString(),
+        ),
+        requestSent: currentUser.sentFriendRequests.some(
+          (f) => f.toString() === u._id.toString(),
+        ),
       }));
     }
 
@@ -131,17 +226,42 @@ exports.getActivityById = async (req, res) => {
       .populate("creator", "name avatar username")
       .populate("participants", "name avatar username")
       .populate("likes", "name avatar")
-      .populate({ path: "comments.user", select: "name avatar" })
+      .populate({
+        path: "comments.user",
+        select: "name avatar username",
+      })
       .populate({
         path: "messages",
-        select: "text image createdAt seenBy",
-        populate: { path: "sender", select: "name avatar" },
-        options: { sort: { createdAt: 1 } }
+        select:
+          "sender text image voiceNote voiceDuration replyTo createdAt seenBy",
+        populate: [
+          {
+            path: "sender",
+            select: "name avatar username",
+          },
+          // We removed the replyTo population for now (see note below)
+        ],
+        options: { sort: { createdAt: 1 } },
       })
-      .populate({ path: "messages.seenBy", select: "name avatar" });
+      .populate({
+        path: "messages.seenBy",
+        select: "name avatar username",
+      });
 
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
-    res.json(activity);
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    const activityObj = activity.toObject();
+
+    if (activityObj.messages) {
+      activityObj.messages = activityObj.messages.map((msg) => ({
+        ...msg,
+        seenByCount: msg.seenBy ? msg.seenBy.length : 0,
+      }));
+    }
+
+    res.json(activityObj);
   } catch (error) {
     console.error("Error fetching activity:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -151,7 +271,8 @@ exports.getActivityById = async (req, res) => {
 exports.requestJoin = async (req, res) => {
   try {
     const activity = await Activity.findById(req.params.id);
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    if (!activity)
+      return res.status(404).json({ message: "Activity not found" });
 
     if (!activity.pendingRequests.includes(req.user.id)) {
       activity.pendingRequests.push(req.user.id);
@@ -165,12 +286,18 @@ exports.requestJoin = async (req, res) => {
 
 exports.likeActivity = async (req, res) => {
   try {
-    const activity = await Activity.findById(req.params.id).populate("creator", "name avatar");
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    const activity = await Activity.findById(req.params.id).populate(
+      "creator",
+      "name avatar",
+    );
+    if (!activity)
+      return res.status(404).json({ message: "Activity not found" });
 
     const alreadyLiked = activity.likes.includes(req.user.id);
     if (alreadyLiked) {
-      activity.likes = activity.likes.filter(id => id.toString() !== req.user.id);
+      activity.likes = activity.likes.filter(
+        (id) => id.toString() !== req.user.id,
+      );
     } else {
       activity.likes.push(req.user.id);
       if (activity.creator._id.toString() !== req.user.id) {
@@ -195,15 +322,24 @@ exports.likeActivity = async (req, res) => {
 
 exports.addComment = async (req, res) => {
   try {
-    console.log(req.user)
     const activity = await Activity.findById(req.params.id);
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    if (!activity)
+      return res.status(404).json({ message: "Activity not found" });
+
     activity.comments.push({ user: req.user.id, text: req.body.text });
     await activity.save();
 
-    const populated = await activity.populate({ path: "comments.user", select: "name avatar" });
+    const populated = await Activity.findById(activity._id)
+      .populate("creator", "name avatar")
+      .populate({ path: "comments.user", select: "name username avatar" })
+      .populate({ path: "likes.user", select: "name username avatar" })
+      .select(
+        "-messages -invitedUsers -pendingRequests -participants -location",
+      );
+
     res.json(populated);
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -212,7 +348,8 @@ exports.addComment = async (req, res) => {
 exports.addMessage = async (req, res) => {
   try {
     const activity = await Activity.findById(req.params.id);
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    if (!activity)
+      return res.status(404).json({ message: "Activity not found" });
 
     const message = {
       sender: req.user.id,
@@ -227,7 +364,11 @@ exports.addMessage = async (req, res) => {
     const io = req.app.get("io");
     io.to(`activity_${req.params.id}`).emit("newMessage", {
       ...message,
-      sender: { _id: req.user.id, name: req.user.name, avatar: req.user.avatar },
+      sender: {
+        _id: req.user.id,
+        name: req.user.name,
+        avatar: req.user.avatar,
+      },
     });
 
     res.json({ message: "Message sent" });
@@ -236,41 +377,10 @@ exports.addMessage = async (req, res) => {
   }
 };
 
-exports.updateActivity = async (req, res) => {
+exports.uploadActivityMessageImage = async (req, res) => {
   try {
-    const { title, description, interests } = req.body;
-    const activity = await Activity.findOne({ _id: req.params.id, creator: req.user.id });
-    if (!activity) return res.status(404).json({ message: "Activity not found or you are not the creator" });
-
-    activity.title = title || activity.title;
-    activity.description = description || activity.description;
-    if (interests) activity.interests = interests;
-    activity.updatedAt = Date.now();
-
-    const updatedActivity = await activity.save();
-    await updatedActivity.populate("creator", "name avatar username");
-    res.json(updatedActivity);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.deleteActivity = async (req, res) => {
-  try {
-    const activity = await Activity.findOne({ _id: req.params.id, creator: req.user.id });
-    if (!activity) return res.status(404).json({ message: "Activity not found or you are not the creator" });
-
-    await Notification.deleteMany({ activity: activity._id });
-    await activity.deleteOne();
-    res.json({ message: "Activity deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.uploadActivityImage = async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ message: "No image file uploaded" });
+    if (!req.file)
+      return res.status(400).json({ message: "No image file uploaded" });
 
     const { id: activityId } = req.params;
     const senderId = req.user.id;
@@ -279,7 +389,7 @@ exports.uploadActivityImage = async (req, res) => {
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: "vibemeet/activities", resource_type: "image" },
-          (error, result) => (result ? resolve(result) : reject(error))
+          (error, result) => (result ? resolve(result) : reject(error)),
         );
         streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
@@ -287,14 +397,21 @@ exports.uploadActivityImage = async (req, res) => {
     const cloudinaryResult = await uploadToCloudinary();
     const imageUrl = cloudinaryResult.secure_url;
 
-    const newMessage = { sender: senderId, text: "", image: imageUrl, createdAt: new Date(), seenBy: [senderId] };
+    const newMessage = {
+      sender: senderId,
+      text: "",
+      image: imageUrl,
+      createdAt: new Date(),
+      seenBy: [senderId],
+    };
 
     const activity = await Activity.findByIdAndUpdate(
       activityId,
       { $push: { messages: newMessage } },
-      { new: true }
+      { new: true },
     );
-    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    if (!activity)
+      return res.status(404).json({ message: "Activity not found" });
 
     const savedMsg = activity.messages[activity.messages.length - 1];
     const io = req.app.get("io");
@@ -312,5 +429,54 @@ exports.uploadActivityImage = async (req, res) => {
   } catch (error) {
     console.error("Cloudinary group image upload error:", error);
     res.status(500).json({ message: "Failed to upload image" });
+  }
+};
+
+exports.updateActivity = async (req, res) => {
+  try {
+    const { title, description, interests } = req.body;
+    const activity = await Activity.findOne({
+      _id: req.params.id,
+      creator: req.user.id,
+    });
+    if (!activity)
+      return res
+        .status(404)
+        .json({ message: "Activity not found or you are not the creator" });
+
+    activity.title = title || activity.title;
+    activity.description = description || activity.description;
+    if (interests) activity.interests = interests;
+    activity.updatedAt = Date.now();
+
+    const updatedActivity = await activity.save();
+    await updatedActivity.populate("creator", "name avatar username");
+    res.json(updatedActivity);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.deleteActivity = async (req, res) => {
+  try {
+    const activity = await Activity.findOne({
+      _id: req.params.id,
+      creator: req.user.id,
+    });
+    if (!activity)
+      return res
+        .status(404)
+        .json({ message: "Activity not found or you are not the creator" });
+        
+       // Delete image from Cloudinary if it exists
+    if (activity.imagePublicId) {
+      await cloudinary.uploader.destroy(activity.imagePublicId).catch(console.error);
+    }
+
+    await Notification.deleteMany({ activity: activity._id });
+    await activity.deleteOne();
+    res.json({ message: "Activity deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
