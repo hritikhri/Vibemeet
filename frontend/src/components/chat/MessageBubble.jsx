@@ -23,14 +23,14 @@ export default function MessageBubble({
     if (message.status === "read")
       return <CheckCheck size={12} className="text-emerald-400" />;
     if (message.status === "delivered")
-      return <CheckCheck size={12} className="text-white/30" />;
-    return <Check size={12} className="text-white/30" />;
+      return <CheckCheck size={12} className="text-black/30" />;
+    return <Check size={12} className="text-black/30" />;
   };
 
   if (message.deleted) {
     return (
       <div className={`flex ${isMe ? "justify-end" : "justify-start"} py-0.5`}>
-        <p className="text-xs italic px-4 py-2 rounded-2xl bg-white/5 text-white/25 border border-white/5">
+        <p className="text-xs italic px-4 py-2 rounded-2xl bg-black/5 text-black/25 border border-black/5">
           🚫 Message deleted
         </p>
       </div>
@@ -56,7 +56,7 @@ export default function MessageBubble({
                 className="w-8 h-8 rounded-xl object-cover"
               />
             ) : (
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-black text-xs font-bold">
                 {(otherUser?.name || "?")[0].toUpperCase()}
               </div>
             )}
@@ -71,8 +71,8 @@ export default function MessageBubble({
               className={`
                 text-xs px-3 py-1.5 rounded-xl cursor-pointer border-l-2 mb-0.5
                 ${isMe
-                  ? "bg-white/8 border-emerald-400/60 text-white/50 self-end"
-                  : "bg-white/5 border-white/20 text-white/40 self-start"}
+                  ? "bg-black/8 border-emerald-400/60 text-black/50 self-end"
+                  : "bg-black/5 border-black/20 text-black/40 self-start"}
               `}
               onClick={() =>
                 onScrollToReply?.(message.replyTo._id || message.replyTo)
@@ -89,8 +89,8 @@ export default function MessageBubble({
             className={`
               relative px-4 py-2.5 rounded-2xl
               ${isMe
-                ? "bg-emerald-500 text-white rounded-br-sm"
-                : "bg-[#1e1e28] border border-white/6 text-white/90 rounded-bl-sm"}
+                ? "bg-emerald-500 text-black rounded-br-sm"
+                : "bg-[#F1F5F9] border border-black/6 text-black/90 rounded-bl-sm"}
             `}
           >
             {/* Image */}
@@ -110,7 +110,7 @@ export default function MessageBubble({
                   className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-lg opacity-0 group-hover/img:opacity-100 transition"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Download size={13} className="text-white" />
+                  <Download size={13} className="text-black" />
                 </a>
               </div>
             )}
@@ -134,7 +134,7 @@ export default function MessageBubble({
             {/* Time + status */}
             <div
               className={`flex items-center justify-end gap-1 mt-1 ${
-                isMe ? "text-white/50" : "text-white/20"
+                isMe ? "text-black/50" : "text-black/20"
               }`}
             >
               <span className="text-[10px]">{timeStr}</span>
@@ -153,15 +153,15 @@ export default function MessageBubble({
         >
           <button
             onClick={onReply}
-            className="p-1.5 hover:bg-white/10 rounded-lg transition"
+            className="p-1.5 hover:bg-black/10 rounded-lg cursor-pointer transition"
             title="Reply"
           >
-            <Reply size={14} className="text-white/40" />
+            <Reply size={14} className="text-black/40" />
           </button>
           {isMe && (
             <button
               onClick={() => onDelete?.(message._id)}
-              className="p-1.5 hover:bg-red-500/15 rounded-lg transition"
+              className="p-1.5 hover:bg-red-500/15 rounded-lg cursor-pointer transition"
               title="Delete"
             >
               <Trash2 size={14} className="text-red-400/60" />

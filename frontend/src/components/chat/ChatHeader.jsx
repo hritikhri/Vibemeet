@@ -29,16 +29,16 @@ export default function ChatHeader({ otherUser, isTyping, online, lastSeen, onBa
     if (isTyping) return <span className="text-emerald-400 animate-pulse">typing…</span>;
     if (online)   return <span className="text-emerald-400">Online</span>;
     const ls = formatLastSeen(lastSeen);
-    if (ls)       return <span className="text-white/30">{ls}</span>;
-    return <span className="text-white/30">@{otherUser?.username}</span>;
+    if (ls)       return <span className="text-black/30">{ls}</span>;
+    return <span className="text-black/30">@{otherUser?.username}</span>;
   };
 
   return (
-    <div className="shrink-0 bg-[#13131a] border-b border-white/5 px-4 py-3 flex items-center gap-3 z-10">
+    <div className="shrink-0 bg-white border-b border-black/5 px-4 py-3 flex items-center gap-3 z-10">
       {/* Back (mobile) */}
       <button
         onClick={onBack}
-        className="p-2 hover:bg-white/8 rounded-xl transition text-white/60 hover:text-white md:hidden"
+        className="p-2 hover:bg-white/8 rounded-xl transition text-black/60 hover:text-black md:hidden"
         aria-label="Go back"
       >
         <ArrowLeft size={20} />
@@ -59,7 +59,7 @@ export default function ChatHeader({ otherUser, isTyping, online, lastSeen, onBa
                   className="w-10 h-10 rounded-xl object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-black font-bold text-sm">
                   {initial}
                 </div>
               )}
@@ -71,7 +71,7 @@ export default function ChatHeader({ otherUser, isTyping, online, lastSeen, onBa
             </div>
 
             <div className="min-w-0">
-              <p className="font-semibold text-[15px] text-white truncate leading-tight">
+              <p className="font-semibold text-[15px] text-black truncate leading-tight">
                 {otherUser.name}
               </p>
               <p className="text-xs truncate leading-tight mt-0.5">
@@ -82,13 +82,13 @@ export default function ChatHeader({ otherUser, isTyping, online, lastSeen, onBa
 
           {/* Actions */}
           <div className="flex items-center gap-1 shrink-0">
-            <button className="p-2 hover:bg-white/8 rounded-xl transition text-white/40 hover:text-white" aria-label="Voice call">
+            <button className="p-2 hover:bg-black/60 rounded-xl transition text-black/40 hover:text-white" aria-label="Voice call">
               <Phone size={18} />
             </button>
-            <button className="p-2 hover:bg-white/8 rounded-xl transition text-white/40 hover:text-white" aria-label="Video call">
+            <button className="p-2 hover:bg-black/60 rounded-xl transition text-black/40 hover:text-white" aria-label="Video call">
               <Video size={18} />
             </button>
-            <button className="p-2 hover:bg-white/8 rounded-xl transition text-white/40 hover:text-white" aria-label="More options">
+            <button className="p-2 hover:bg-black/60 rounded-xl transition text-black/40 hover:text-white" aria-label="More options">
               <MoreVertical size={18} />
             </button>
           </div>

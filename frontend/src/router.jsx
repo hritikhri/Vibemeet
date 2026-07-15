@@ -85,8 +85,8 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><OurMainLayout><Profile /></OurMainLayout></ProtectedRoute> 
   },
   { 
-    path: "/settings", 
-    element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
+    // path: "/settings", 
+    // element: <ProtectedRoute><EditProfile /></ProtectedRoute> 
   },
   {
     path:"*", element:<NotFound/>

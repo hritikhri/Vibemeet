@@ -67,7 +67,7 @@ export default function ConversationList({
         <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">
           💬
         </div>
-        <p className="text-white/40 text-sm">No conversations yet</p>
+        <p className="text-black/40 text-sm">No conversations yet</p>
       </div>
     );
   }
@@ -124,14 +124,14 @@ export default function ConversationList({
               <div className="flex items-center justify-between mb-0.5">
                 <span
                   className={`text-[14px] font-semibold truncate ${
-                    hasUnread ? "text-white" : "text-white/80"
+                    hasUnread ? "text-black" : "text-black/80"
                   }`}
                 >
                   {otherUser.name}
                 </span>
                 <span
                   className={`text-[11px] shrink-0 ml-2 ${
-                    hasUnread ? "text-emerald-400 font-medium" : "text-white/25"
+                    hasUnread ? "text-emerald-400 font-medium" : "text-black/25"
                   }`}
                 >
                   {time}
@@ -141,11 +141,11 @@ export default function ConversationList({
               <div className="flex items-center justify-between gap-2">
                 <p
                   className={`text-[13px] truncate ${
-                    hasUnread ? "text-white/70 font-medium" : "text-white/30"
+                    hasUnread ? "text-black/70 font-medium" : "text-black/30"
                   }`}
                 >
                   {lastMessage?.fromMe && !lastMessage?.deleted && (
-                    <span className="text-white/20 mr-1">You:</span>
+                    <span className="text-black/20 mr-1">You:</span>
                   )}
                   {preview || <span className="italic">Say hello 👋</span>}
                 </p>

@@ -27,7 +27,7 @@ router.post('/friend-request/:id/reject', protect, userController.rejectFriendRe
 router.post('/:id/interest',   protect, addInterest);
 router.delete('/:id/interest', protect, removeInterest);
 router.get('/:id/interested',  protect, getInterestedUsers);
-router.get('/:id/my-interests',      protect, getMyInterests);      // who :id is interested in
+router.get('/:id/my-interests', protect, getMyInterests);      // who :id is interested in
 
 
 module.exports= router;

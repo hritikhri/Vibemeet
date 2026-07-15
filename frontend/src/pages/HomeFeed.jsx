@@ -30,7 +30,7 @@ export default function HomeFeed() {
   }, []);
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: "var(--bg)" }}>
+    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 
@@ -386,7 +386,7 @@ export default function HomeFeed() {
                   cursor: "pointer",
                 }}
               >
-                <div className="avatar-ring">
+                <div className="">
                   <div className="avatar-ring-inner">
                     <Avatar src={user?.avatar} size="md" />
                   </div>

@@ -99,14 +99,14 @@ const startServer = async () => {
   try {
 
     await redis.connect();
-    console.log("✅ Redis connected");
+    console.log("Redis connected");
 
 
     console.log(process.env.PORT)
     await connectDB();
     
     server.listen(PORT, () => {
-      console.log(`VibeMeet Backend Started Successfully`);
+      // console.log(`VibeMeet Backend Started Successfully`);
       console.log(`Server running on: http://localhost:${PORT}`);
       console.log(`Allowed Frontend: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
       console.log(`Socket.io ready for real-time chat & notifications\n`);

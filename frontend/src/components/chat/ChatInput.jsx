@@ -15,7 +15,7 @@ export default function ChatInput({
   const canSend = (newMessage.trim().length > 0 || !!imagePreview) && !sending;
 
   return (
-    <div className="shrink-0 bg-[#13131a] border-t border-white/5 px-4 pt-2 pb-4">
+    <div className="shrink-0 bg-[#fff] border-t border-black/5 px-4 pt-2 pb-4">
       {/* Reply preview */}
       {replyTo && (
         <div className="mb-2 flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/15 border-l-4 border-l-emerald-500/60 px-3 py-2 rounded-xl">
@@ -24,13 +24,13 @@ export default function ChatInput({
             <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wide mb-0.5">
               Replying
             </p>
-            <p className="text-xs text-white/40 truncate">
+            <p className="text-xs text-black/40 truncate">
               {replyTo.image ? "📷 Photo" : replyTo.text}
             </p>
           </div>
           <button
             onClick={onCancelReply}
-            className="p-1 text-white/20 hover:text-white/60 transition shrink-0"
+            className="p-1 text-black/20 hover:text-black/60 transition shrink-0"
           >
             <X size={13} />
           </button>
@@ -39,16 +39,16 @@ export default function ChatInput({
 
       {/* Image preview */}
       {imagePreview && (
-        <div className="mb-2 flex items-center gap-3 bg-white/5 border border-white/8 p-2.5 rounded-xl">
+        <div className="mb-2 flex items-center gap-3 bg-black/5 border border-black/10 p-2.5 rounded-xl">
           <img
             src={imagePreview}
             className="w-11 h-11 object-cover rounded-lg"
             alt="preview"
           />
-          <p className="text-sm text-white/40 flex-1 truncate">Image ready</p>
+          <p className="text-sm text-black/40 flex-1 truncate">Image ready</p>
           <button
             onClick={() => setImagePreview(null)}
-            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition"
+            className="p-1.5 bg-gray-200 text-red-400 hover:bg-red-500/10 rounded-lg transition"
           >
             <X size={14} />
           </button>
@@ -57,13 +57,13 @@ export default function ChatInput({
 
       <div className="flex items-center gap-2">
         <button
-          className="p-2.5 text-white/25 hover:text-white/60 hover:bg-white/5 rounded-xl transition"
+          className="p-2.5 text-black/25 hover:text-black/60 hover:bg-black/5 rounded-xl transition"
           aria-label="Emoji"
         >
           <Smile size={20} />
         </button>
 
-        <label className="cursor-pointer p-2.5 text-white/25 hover:text-white/60 hover:bg-white/5 rounded-xl transition">
+        <label className="cursor-pointer p-2.5 text-black/25 hover:text-black/60 hover:bg-black/5 rounded-xl transition">
           <input
             type="file"
             accept="image/*"
@@ -88,7 +88,7 @@ export default function ChatInput({
           }}
           placeholder="Type a message…"
           disabled={sending}
-          className="flex-1 bg-white/5 border border-white/8 rounded-2xl px-5 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/40 focus:bg-white/8 transition"
+          className="flex-1 bg-black/5 border border-black/20 rounded-2xl px-5 py-3 text-sm text-black placeholder-black/20 focus:outline-none focus:border-emerald-500/40 focus:bg-white/8 transition"
         />
 
         <button
@@ -96,8 +96,8 @@ export default function ChatInput({
           disabled={!canSend}
           className={`p-3 rounded-2xl transition-all ${
             canSend
-              ? "bg-emerald-500 text-white hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-500/20"
-              : "bg-white/5 text-white/15 cursor-not-allowed"
+              ? "bg-emerald-500 text-black hover:bg-emerald-400 active:scale-95 shadow-lg shadow-emerald-500/20"
+              : "bg-black/5 text-black/15 cursor-not-allowed"
           }`}
           aria-label="Send"
         >

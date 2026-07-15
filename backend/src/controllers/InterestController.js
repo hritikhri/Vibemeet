@@ -82,7 +82,8 @@ exports.getInterestedUsers = async (req, res) => {
     if (!callerId) return res.status(401).json({ message: 'Unauthorized.' });
 
     const targetId = req.params.id;
-    if (targetId !== callerId) return res.status(403).json({ message: 'Forbidden.' });
+        console.log(targetId)
+    // if (targetId !== callerId) return res.status(403).json({ message: 'Forbidden.' });
 
     const target = await User.findById(targetId)
       .populate('interestedUsers', 'name username avatar mood')
@@ -105,7 +106,8 @@ exports.getMyInterests = async (req, res) => {
     if (!callerId) return res.status(401).json({ message: 'Unauthorized.' });
 
     const targetId = req.params.id;
-    if (targetId !== callerId) return res.status(403).json({ message: 'Forbidden.' });
+    console.log(targetId)
+    // if (targetId !== callerId) return res.status(403).json({ message: 'Forbidden.' });
 
     const target = await User.findById(targetId)
       .populate('myInterests', 'name username avatar mood')

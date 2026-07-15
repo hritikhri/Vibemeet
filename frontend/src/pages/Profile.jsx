@@ -64,39 +64,53 @@ export default function Profile() {
   const { user: currentUser } = useAuthStore();
   const navigate              = useNavigate();
 
-  const activitiesRef   = useRef(null);
-  const modalRef        = useRef(null);
-  const confirmModalRef = useRef(null);
-  const lastTapRef      = useRef(0);
-  const dblClickLockRef = useRef(false);
+  const activitiesRef      = useRef(null);
+  const modalRef           = useRef(null);
+  const confirmModalRef    = useRef(null);
+  const lastTapRef         = useRef(0);
+  const dblClickLockRef    = useRef(false);
+  const profileSectionRef  = useRef(null);
+  const stickyTriggerRef   = useRef(null); // sentinel div at bottom of profile section
+  const lastScrollY        = useRef(0);
 
-  const [profileUser,     setProfileUser]    = useState(null);
-  const [activities,      setActivities]     = useState([]);
-  const [loading,         setLoading]        = useState(true);
-  const [isFollowing,     setIsFollowing]    = useState(false);
-  const [followLoading,   setFollowLoading]  = useState(false);
-  const [isInterested,    setIsInterested]   = useState(false);
-  const [interestLoading, setInterestLoading]= useState(false);
-  const [showConfirm,     setShowConfirm]    = useState(false);
-  // 'myInterests' | 'interestedInMe' | 'followers' | 'following' | null
-  const [activeModal,     setActiveModal]    = useState(null);
-  // lists fetched lazily for own-profile modals
-  const [myInterestsList,    setMyInterestsList]    = useState(null); // profiles I'm interested in
-  const [interestedInMeList, setInterestedInMeList] = useState(null); // profiles interested in me
-  const [interestedInCount, setinterestedInCount] = useState(null); // profiles interested in me
-  const [listsLoading,       setListsLoading]       = useState(false);
+  const [profileUser,        setProfileUser]       = useState(null);
+  const [activities,         setActivities]        = useState([]);
+  const [loading,            setLoading]           = useState(true);
+  const [isFollowing,        setIsFollowing]       = useState(false);
+  const [followLoading,      setFollowLoading]     = useState(false);
+  const [isInterested,       setIsInterested]      = useState(false);
+  const [interestLoading,    setInterestLoading]   = useState(false);
+  const [showConfirm,        setShowConfirm]       = useState(false);
+  const [activeModal,        setActiveModal]       = useState(null);
+  const [myInterestsList,    setMyInterestsList]   = useState(null);
+  const [interestedInMeList, setInterestedInMeList]= useState(null);
+  const [interestedInCount,  setinterestedInCount] = useState(null);
+  const [listsLoading,       setListsLoading]      = useState(false);
+  const [isSticky,           setIsSticky]          = useState(false);
 
   const isOwnProfile = !id || id === currentUser?._id;
   const targetId     = id || currentUser?._id;
 
-  /* ── counts derived from profileUser ────────────────────────────────────── */
-  const followerCount       = profileUser?.interestedUsers?.length       ?? 0;
-  const followingCount      = profileUser?.myInterests?.length       ?? 0;
+  const followerCount       = profileUser?.interestedUsers?.length ?? 0;
+  const followingCount      = profileUser?.myInterests?.length     ?? 0;
   const interestedInMeCount = profileUser?.interestedUsers?.length ?? 0;
-  const interestedUsers = profileUser?.myInterests?.length ?? 0;
-  console.log(profileUser)
+  const interestedUsers     = profileUser?.myInterests?.length     ?? 0;
 
-  // myInterests count lives on currentUser's own doc → fetch separately only when needed
+  /* ── IntersectionObserver: go sticky when sentinel leaves viewport ──────── */
+  useEffect(() => {
+    console.log(profileUser)
+    const sentinel = stickyTriggerRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // when sentinel (bottom of profile section) is NOT visible → sticky
+        setIsSticky(!entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: '0px 0px 0px 0px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [profileUser]); // re-observe after profile loads
 
   /* ── close modals on outside click ─────────────────────────────────────── */
   useEffect(() => {
@@ -129,7 +143,7 @@ export default function Profile() {
       .finally(() => setLoading(false));
   }, [id, currentUser]);
 
-  /* ── lazy-fetch interest lists for own profile modals ───────────────────── */
+  /* ── lazy-fetch interest lists ──────────────────────────────────────────── */
   const openOwnModal = async (type) => {
     setActiveModal(type);
     if (type === 'interestedInMe' && interestedInMeList === null) {
@@ -150,7 +164,7 @@ export default function Profile() {
     }
   };
 
-  /* ── double-click / double-tap → add interest ────────────────────────────── */
+  /* ── double-click / double-tap → add interest ───────────────────────────── */
   const handleDoubleInteract = useCallback(async (clientX, clientY) => {
     if (isOwnProfile || isInterested || dblClickLockRef.current || interestLoading) return;
     dblClickLockRef.current = true;
@@ -282,6 +296,134 @@ export default function Profile() {
     >
       <style>{GLOBAL_STYLES}</style>
 
+      {/* ══════════════════════════════════════════════════════════════════
+          STICKY COLLAPSED HEADER — slides in from top when profile scrolls away
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className={`sticky-header ${isSticky ? 'sticky-header--visible' : ''}`}>
+        <div className="sticky-inner">
+
+          {/* Row 1: nav btn · avatar · name/username · action btn */}
+          <div className="sticky-row1">
+            {/* Back / Settings */}
+            <button
+              className="sticky-nav-btn"
+              onClick={() => isOwnProfile ? navigate('/setting') : navigate(-1)}
+            >
+              {isOwnProfile
+                ? <Settings size={14} color="var(--accent)"/>
+                : <ChevronRight size={14} color="var(--accent)" style={{ transform:'rotate(180deg)' }}/>
+              }
+            </button>
+
+            {/* Mini avatar */}
+            <div className={`sticky-avatar ${isInterested ? 'sticky-avatar--interested' : ''}`}>
+              {profileUser?.avatar
+                ? <img src={profileUser.avatar} alt={profileUser.name}
+                    style={{ width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%' }}/>
+                : <div style={{ width:'100%',height:'100%',borderRadius:'50%',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    background:'linear-gradient(135deg,#e8f5e9,#c1e6d4)',
+                    fontSize:15,fontWeight:800,color:'var(--accent)' }}>
+                    {profileUser?.name?.[0]||'?'}
+                  </div>
+              }
+            </div>
+
+            {/* Name + username + mood */}
+            <div style={{ flex:1,minWidth:0 }}>
+              <div style={{ display:'flex',alignItems:'center',gap:6,flexWrap:'nowrap' }}>
+                <p className="sticky-name">{profileUser?.name}</p>
+                {isInterested && !isOwnProfile && (
+                  <span className="sticky-interested-dot" title="Interested">⭐</span>
+                )}
+              </div>
+              <div style={{ display:'flex',alignItems:'center',gap:6,marginTop:1,flexWrap:'nowrap' }}>
+                <span className="sticky-username">@{profileUser?.username}</span>
+                {profileUser?.mood && (
+                  <span className="sticky-mood">
+                    <Sparkles size={9}/> {profileUser.mood}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Action button */}
+            {!isOwnProfile ? (
+              <button className="sticky-action-btn" onClick={() => navigate(`/chat/${id}`)}>
+                <MessageCircle size={14}/>
+                <span className="sticky-btn-label">Message</span>
+              </button>
+            ) : (
+              <button className="sticky-action-btn" onClick={() => navigate('/setting')}>
+                <Edit3 size={14}/>
+                <span className="sticky-btn-label">Edit</span>
+              </button>
+            )}
+          </div>
+
+          {/* Row 2: bio excerpt */}
+          {profileUser?.bio && (
+            <p className="sticky-bio">
+              {profileUser.bio.length > 90
+                ? profileUser.bio.slice(0, 90) + '…'
+                : profileUser.bio}
+            </p>
+          )}
+
+          {/* Row 3: interest tags + mini stats */}
+          <div className="sticky-row3">
+            {/* Interest tags */}
+            {profileUser?.interests?.length > 0 && (
+              <div className="sticky-tags-wrap">
+                {profileUser.interests.slice(0, 3).map((t, i) => (
+                  <span key={i} className="sticky-tag">{t}</span>
+                ))}
+                {profileUser.interests.length > 3 && (
+                  <span className="sticky-tag sticky-tag--more">
+                    +{profileUser.interests.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Mini stat pills */}
+            <div className="sticky-stats">
+              <div className="sticky-stat">
+                <span className="sticky-stat-num">{activities.length}</span>
+                <span className="sticky-stat-label">Hangouts</span>
+              </div>
+              {isOwnProfile ? (
+                <>
+                  <div className="sticky-stat sticky-stat--star"
+                    onClick={() => openOwnModal('interestedInMe')}>
+                    <span className="sticky-stat-num" style={{ color:'#f59e0b' }}>{interestedInMeCount}</span>
+                    <span className="sticky-stat-label">Interested</span>
+                  </div>
+                  <div className="sticky-stat sticky-stat--heart"
+                    onClick={() => openOwnModal('myInterests')}>
+                    <span className="sticky-stat-num" style={{ color:'#f472b6' }}>{interestedUsers}</span>
+                    <span className="sticky-stat-label">My interests</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="sticky-stat" onClick={() => setActiveModal('followers')}>
+                    <span className="sticky-stat-num">{followerCount}</span>
+                    <span className="sticky-stat-label">Friends</span>
+                  </div>
+                  <div className="sticky-stat" onClick={() => setActiveModal('following')}>
+                    <span className="sticky-stat-num">{followingCount}</span>
+                    <span className="sticky-stat-label">Following</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      {/* ══════════════════════════════════════════════════════════════════ */}
+
       {/* hint bar */}
       {!isOwnProfile && !isInterested && (
         <div className="dbl-hint fade-in">double tap anywhere to show interest ✨</div>
@@ -304,100 +446,101 @@ export default function Profile() {
       {/* Body */}
       <div style={{ maxWidth:680, margin:'0 auto', padding:'0 16px' }}>
 
-        {/* Avatar + action buttons */}
-        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-          <div className={`avatar-ring ${isInterested ? 'avatar-ring--interested' : ''}`}>
-            <div className="avatar-inner">
-              {profileUser?.avatar
-                ? <img src={profileUser.avatar} alt={profileUser.name} style={{ width:'100%',height:'100%',objectFit:'cover' }}/>
-                : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',
-                    background:'linear-gradient(135deg,#e8f5e9,#c1e6d4)',fontSize:38,fontWeight:800,color:'var(--accent)' }}>
-                    {profileUser?.name?.[0]||'?'}
-                  </div>
-              }
+        {/* ── PROFILE SECTION (sentinel watches its bottom edge) ───────── */}
+        <div ref={profileSectionRef}>
+
+          {/* Avatar + action buttons */}
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <div className={`avatar-ring ${isInterested ? 'avatar-ring--interested' : ''}`}>
+              <div className="avatar-inner">
+                {profileUser?.avatar
+                  ? <img src={profileUser.avatar} alt={profileUser.name} style={{ width:'100%',height:'100%',objectFit:'cover' }}/>
+                  : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',
+                      background:'linear-gradient(135deg,#e8f5e9,#c1e6d4)',fontSize:38,fontWeight:800,color:'var(--accent)' }}>
+                      {profileUser?.name?.[0]||'?'}
+                    </div>
+                }
+              </div>
+            </div>
+
+            <div style={{ display:'flex',gap:8,alignItems:'center',paddingBottom:10,flexWrap:'wrap' }} className="fade-in">
+              {!isOwnProfile ? (
+                <button className="btn-message" onClick={() => navigate(`/chat/${id}`)}>
+                  <MessageCircle size={15}/> Message
+                </button>
+              ) : (
+                <button className="btn-edit" onClick={() => navigate('/setting')}><Edit3 size={14}/> Edit Profile</button>
+              )}
             </div>
           </div>
 
-          <div style={{ display:'flex',gap:8,alignItems:'center',paddingBottom:10,flexWrap:'wrap' }} className="fade-in">
-            {!isOwnProfile ? (
-              <>
-                {/* <button className={isFollowing ? 'btn-follow-off' : 'btn-follow-on'} onClick={handleToggleFollow} disabled={followLoading}>
-                  {followLoading ? <span className="spinner"/> : isFollowing ? <><UserCheck size={15}/> Friends</> : <><UserCheck size={14}/> Add Friend</>}
-                </button> */}
-                <button className="btn-message" onClick={() => navigate(`/chat/private/${id}`)}>
-                  <MessageCircle size={15}/> Message
+          {/* Name + interest badge */}
+          <div style={{ marginTop:16, animationDelay:'.08s' }} className="fade-in">
+            <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+              <h1 className="serif-name">{profileUser?.name}</h1>
+              {isInterested && !isOwnProfile && (
+                <button className="interest-badge" onClick={() => setShowConfirm(true)} disabled={interestLoading} title="Click to remove interest">
+                  {interestLoading ? <span className="spinner" style={{ width:12,height:12 }}/> : <><Star size={13} style={{ fill:'currentColor' }}/> Interested</>}
                 </button>
+              )}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6, flexWrap:'wrap' }}>
+              <span style={{ fontSize:14,color:'var(--muted)',fontWeight:500 }}>@{profileUser?.username}</span>
+              {profileUser?.mood && <span className="mood-chip"><Sparkles size={11}/> {profileUser.mood}</span>}
+            </div>
+          </div>
+
+          {profileUser?.bio && (
+            <p className="bio fade-in" style={{ animationDelay:'.14s' }}>{profileUser.bio}</p>
+          )}
+
+          {profileUser?.interests?.length > 0 && (
+            <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginTop:16,animationDelay:'.18s' }} className="fade-in">
+              {profileUser.interests.map((t,i) => <span key={i} className="tag">{t}</span>)}
+            </div>
+          )}
+
+          {/* Stats grid */}
+          <div className="stats-grid fade-in" style={{ animationDelay:'.22s' }}>
+            <div className="stat-card" onClick={() => activitiesRef.current?.scrollIntoView({ behavior:'smooth' })}>
+              <span className="stat-num">{activities.length}</span>
+              <span className="stat-label">Hangouts</span>
+            </div>
+            {isOwnProfile ? (
+              <>
+                <div className="stat-card stat-card--star" onClick={() => openOwnModal('interestedInMe')}>
+                  <span className="stat-num" style={{ color:'#f59e0b' }}>{interestedInMeCount}</span>
+                  <span className="stat-label">Interested in me</span>
+                </div>
+                <div className="stat-card stat-card--heart" onClick={() => openOwnModal('myInterests')}>
+                  <span className="stat-num" style={{ color:'#f472b6' }}>{interestedUsers}</span>
+                  <span className="stat-label">My interests</span>
+                </div>
               </>
             ) : (
-              <button className="btn-edit" onClick={() => navigate('/setting')}><Edit3 size={14}/> Edit Profile</button>
+              <>
+                <div className="stat-card stat-card--star" onClick={() => openOwnModal('interestedInMe')}>
+                  <span className="stat-num" style={{ color:'#f59e0b' }}>{interestedInMeCount}</span>
+                  <span className="stat-label">Interested in me</span>
+                </div>
+                <div className="stat-card stat-card--heart" onClick={() => openOwnModal('myInterests')}>
+                  <span className="stat-num" style={{ color:'#f472b6' }}>{interestedUsers}</span>
+                  <span className="stat-label">My interests</span>
+                </div>
+              </>
             )}
           </div>
+
+          {/* ── sentinel: triggers sticky when it leaves viewport ──────── */}
+          <div ref={stickyTriggerRef} style={{ height:1, marginTop:8 }}/>
+
         </div>
+        {/* ── END PROFILE SECTION ──────────────────────────────────────── */}
 
-        {/* Name + interest badge */}
-        <div style={{ marginTop:16, animationDelay:'.08s' }} className="fade-in">
-          <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-            <h1 className="serif-name">{profileUser?.name}</h1>
-            {isInterested && !isOwnProfile && (
-              <button className="interest-badge" onClick={() => setShowConfirm(true)} disabled={interestLoading} title="Click to remove interest">
-                {interestLoading ? <span className="spinner" style={{ width:12,height:12 }}/> : <><Star size={13} style={{ fill:'currentColor' }}/> Interested</>}
-              </button>
-            )}
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6, flexWrap:'wrap' }}>
-            <span style={{ fontSize:14,color:'var(--muted)',fontWeight:500 }}>@{profileUser?.username}</span>
-            {profileUser?.mood && <span className="mood-chip"><Sparkles size={11}/> {profileUser.mood}</span>}
-          </div>
-        </div>
-
-        {profileUser?.bio && <p className="bio fade-in" style={{ animationDelay:'.14s' }}>{profileUser.bio}</p>}
-
-        {profileUser?.interests?.length > 0 && (
-          <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginTop:16,animationDelay:'.18s' }} className="fade-in">
-            {profileUser.interests.map((t,i) => <span key={i} className="tag">{t}</span>)}
-          </div>
-        )}
-
-        {/* ── Stats grid ────────────────────────────────────────────────── */}
-        <div className="stats-grid fade-in" style={{ animationDelay:'.22s' }}>
-          {/* Hangouts — everyone sees this */}
-          <div className="stat-card" onClick={() => activitiesRef.current?.scrollIntoView({ behavior:'smooth' })}>
-            <span className="stat-num">{activities.length}</span>
-            <span className="stat-label">Hangouts</span>
-          </div>
-
-          {isOwnProfile ? (
-            <>
-              {/* Interested in me */}
-              <div className="stat-card stat-card--star" onClick={() => openOwnModal('interestedInMe')}>
-                <span className="stat-num" style={{ color:'#f59e0b' }}>{interestedInMeCount}</span>
-                <span className="stat-label">Interested in me</span>
-              </div>
-              {/* My interests */}
-              <div className="stat-card stat-card--heart" onClick={() => openOwnModal('myInterests')}>
-                <span className="stat-num" style={{ color:'#f472b6' }}>{interestedUsers}</span>
-                <span className="stat-label">My interests</span>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Followers + Following for other profiles */}
-              <div className="stat-card" onClick={() => setActiveModal('followers')}>
-                <span className="stat-num">{followerCount}</span>
-                <span className="stat-label">Friends</span>
-              </div>
-              <div className="stat-card" onClick={() => setActiveModal('following')}>
-                <span className="stat-num">{followingCount}</span>
-                <span className="stat-label">Following</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ height:1, background:'var(--border)', margin:'32px 0' }}/>
+        <div style={{ height:1, background:'var(--border)', margin:'24px 0 32px' }}/>
 
         {/* Activities */}
-        <div ref={activitiesRef} style={{ scrollMarginTop:24 }}>
+        <div ref={activitiesRef} style={{ scrollMarginTop:220 }}>
           <h2 className="section-title">
             {isOwnProfile ? 'My Hangouts' : `${profileUser?.name?.split(' ')[0]}'s Hangouts`}
           </h2>
@@ -409,7 +552,9 @@ export default function Profile() {
             </div>
           ) : (
             <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
-              {activities.map(act => <FeedCard key={act._id} activity={act} onJoin={() => navigate(`/activity/${act._id}`)}/>)}
+              {activities.map(act => (
+                <FeedCard key={act._id} activity={act} onJoin={() => navigate(`/activity/${act._id}`)}/>
+              ))}
             </div>
           )}
         </div>
@@ -430,7 +575,6 @@ export default function Profile() {
               </div>
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={15} color="var(--accent)"/></button>
             </div>
-
             <div style={{ overflowY:'auto',padding:'8px 0 20px',flex:1 }}>
               {listsLoading ? (
                 <div style={{ textAlign:'center',padding:'48px 24px' }}>
@@ -499,10 +643,212 @@ const GLOBAL_STYLES = `
   :root {
     --bg:#f8f7f4; --surface:#ffffff; --surface2:#f0ede8;
     --accent:#4a9c6e; --accent2:#6ab8a0; --muted:#8a8580; --border:#e4e0da; --text:#1f2a44;
+    --sticky-h: 0px;
   }
   * { box-sizing:border-box; font-family:'Sora',sans-serif; }
   .serif { font-family:'Instrument Serif',serif; }
 
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║                     STICKY HEADER                                   ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  .sticky-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 80;
+    /* hidden above viewport */
+    transform: translateY(-110%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 0.38s cubic-bezier(.34,1.15,.64,1),
+      opacity   0.28s ease;
+  }
+  .sticky-header--visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* glass card wrapper */
+  .sticky-inner {
+    background: rgba(248,247,244,0.96);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(228,224,218,0.8);
+    box-shadow: 0 6px 32px rgba(0,0,0,0.09);
+    /* constrain to same max-width as page body */
+    width: 100%;
+    padding: 10px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Row 1: nav · avatar · info · action ── */
+  .sticky-row1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sticky-nav-btn {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    border-radius: 11px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background .18s, border-color .18s;
+  }
+  .sticky-nav-btn:hover { background: #e8f5e9; border-color: var(--accent); }
+
+  .sticky-avatar {
+    flex-shrink: 0;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2.5px solid var(--accent2);
+    box-shadow: 0 2px 12px rgba(74,156,110,0.22);
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .sticky-avatar--interested {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.2), 0 2px 12px rgba(245,158,11,0.25);
+  }
+
+  .sticky-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 16px; font-weight: 600;
+    color: var(--text); line-height: 1.15;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 160px;
+  }
+  @media (min-width: 400px) { .sticky-name { max-width: 200px; } }
+  @media (min-width: 540px) { .sticky-name { font-size:18px; max-width: 260px; } }
+  @media (min-width: 768px) { .sticky-name { font-size:20px; max-width: 340px; } }
+
+  .sticky-interested-dot { font-size: 13px; }
+
+  .sticky-username {
+    font-size: 11px; color: var(--muted); font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @media (min-width: 540px) { .sticky-username { font-size:12px; } }
+
+  .sticky-mood {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; font-weight: 700; color: var(--accent);
+    padding: 2px 8px; border-radius: 100px;
+    background: #e8f5e9; border: 1px solid rgba(74,156,110,0.15);
+    flex-shrink: 0;
+  }
+  @media (min-width: 540px) { .sticky-mood { font-size:11px; } }
+
+  .sticky-action-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 8px 14px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: 'Sora', sans-serif;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+    white-space: nowrap;
+  }
+  .sticky-action-btn:hover { border-color: var(--accent); color: var(--accent); background: #e8f5e9; }
+  /* on very small screens hide the label, just icon */
+  .sticky-btn-label { display: none; }
+  @media (min-width: 380px) { .sticky-btn-label { display: inline; } }
+
+  /* ── Row 2: bio excerpt ── */
+  .sticky-bio {
+    font-size: 11px; color: #5c6b66; line-height: 1.55;
+    font-weight: 400; margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  @media (min-width: 540px) { .sticky-bio { font-size:12px; } }
+  /* hide bio on tiny screens to save space */
+  @media (max-width: 360px) { .sticky-bio { display: none; } }
+
+  /* ── Row 3: tags + mini stats ── */
+  .sticky-row3 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .sticky-tags-wrap {
+    display: flex; align-items: center; gap: 5px;
+    flex-wrap: nowrap; overflow: hidden;
+    flex: 1; min-width: 0;
+  }
+
+  .sticky-tag {
+    padding: 3px 10px; border-radius: 100px;
+    background: #e8f5e9; color: var(--accent);
+    border: 1px solid rgba(74,156,110,0.14);
+    font-size: 10px; font-weight: 600;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  @media (min-width: 540px) { .sticky-tag { font-size:11px; padding: 4px 12px; } }
+  .sticky-tag--more {
+    background: var(--surface2); color: var(--muted); border-color: var(--border);
+  }
+
+  .sticky-stats {
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .sticky-stat {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 5px 10px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; transition: all .18s;
+    min-width: 52px;
+  }
+  .sticky-stat:hover { border-color: var(--accent2); background: #e8f5e9; }
+  .sticky-stat--star  { border-color: rgba(245,158,11,0.3); background: #fffbeb; }
+  .sticky-stat--heart { border-color: rgba(244,114,182,0.3); background: #fdf2f8; }
+  .sticky-stat--star:hover  { border-color: #f59e0b; }
+  .sticky-stat--heart:hover { border-color: #f472b6; }
+
+  .sticky-stat-num {
+    font-family: 'Instrument Serif', serif;
+    font-size: 15px; font-weight: 800; color: var(--text); line-height: 1;
+  }
+  .sticky-stat-label {
+    font-size: 8px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+    margin-top: 2px; text-align: center; white-space: nowrap;
+  }
+  @media (min-width: 540px) {
+    .sticky-stat-num   { font-size: 17px; }
+    .sticky-stat-label { font-size: 9px; }
+    .sticky-stat { padding: 6px 12px; min-width: 60px; }
+  }
+  /* hide stats on tiny screens */
+  @media (max-width: 340px) { .sticky-stats { display: none; } }
+
+  /* divider below sticky */
+  .sticky-inner::after {
+    content: '';
+    display: block;
+    height: 3px;
+    margin: 4px -16px -12px;
+    background: linear-gradient(to right, var(--accent), var(--accent2), transparent);
+    opacity: 0.35;
+    border-radius: 0 0 2px 2px;
+  }
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║                    EXISTING STYLES (unchanged)                       ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
   .dbl-hint {
     position:fixed; bottom:110px; left:50%; transform:translateX(-50%);
     z-index:50; font-size:12px; font-weight:600; color:var(--muted);
