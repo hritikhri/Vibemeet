@@ -160,4 +160,4 @@ console.log(`✅ Created 100 activities with 1-3 random images each`);
   }
 };
 
-seedData();
+// seedData();

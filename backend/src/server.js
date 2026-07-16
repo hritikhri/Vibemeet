@@ -25,7 +25,7 @@ const limiter = require('./middleware/rateLimiter');
 // const DB
 const connectDB =require( './config/db.js');
 
-
+seedData = require('./utils/seed.js');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -104,6 +104,7 @@ const startServer = async () => {
 
     console.log(process.env.PORT)
     await connectDB();
+    await seedData(); // Seed the database with initial data
     
     server.listen(PORT, () => {
       // console.log(`VibeMeet Backend Started Successfully`);
