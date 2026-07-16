@@ -57,7 +57,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // Create reset link for React frontend (Vite default port 5173)
-    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const resetLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
     // Send email
     const mailOptions = {
@@ -340,7 +340,7 @@ exports.login = async (req, res) => {
 
     if (!isMatch) {
       return res.status(401).json({
-        message: "Invalid email or password",
+        message: "Invalid Credentials",
       });
     }
 
