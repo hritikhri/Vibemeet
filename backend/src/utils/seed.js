@@ -12,7 +12,7 @@ const Notification = require( '../models/Notification.js');
 
 const seedData = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('🟢 Connected to MongoDB');
 
     // Clear existing data
