@@ -17,4 +17,4 @@ router.post('/:id/interest',   protect, addInterest);
 router.delete('/:id/interest', protect, removeInterest);
 router.get('/:id/interested',  protect, getInterestedUsers);
 
-module.exports= router;
+module.exports= router;                     
