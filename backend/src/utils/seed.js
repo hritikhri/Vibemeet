@@ -10,7 +10,7 @@ const Activity = require( '../models/Activity.js');
 const PrivateMessage = require( '../models/PrivateMessage.js');
 const Notification = require( '../models/Notification.js');
 
-export const seedData = async () => {
+const seedData = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('🟢 Connected to MongoDB');
@@ -161,3 +161,5 @@ console.log(`✅ Created 100 activities with 1-3 random images each`);
 };
 
 // seedData();
+
+module.exports = seedData;
