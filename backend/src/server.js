@@ -104,7 +104,7 @@ const startServer = async () => {
 
     console.log(process.env.PORT)
     await connectDB();
-    await seedData(); // Seed the database with initial data
+    // await seedData(); // Seed the database with initial data
     
     server.listen(PORT, () => {
       // console.log(`VibeMeet Backend Started Successfully`);
