@@ -17,7 +17,7 @@ exports.addInterest = async (req, res) => {
     if (!visitorId) return res.status(401).json({ message: 'Unauthorized.' });
 
     const targetId = req.params.id;
-    if (targetId === visitorId)
+    if (targetId === visitorId)                      
       return res.status(400).json({ message: "You can't express interest in your own profile." });
 
     const target = await User.findById(targetId);
