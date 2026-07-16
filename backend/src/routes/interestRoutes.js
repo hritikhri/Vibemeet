@@ -1,11 +1,11 @@
 // backend/routes/interest.routes.js
 const express = require( 'express');
-const { protect } = require( '../middleware/auth.js');
+const { protect } = require('../middleware/auth.js');
 const {
   addInterest,
   removeInterest,
   getInterestedUsers,
-} = require( '../controllers/interestController.js');
+} = require('../controllers/interestController.js');
 
 const router = express.Router();
 
