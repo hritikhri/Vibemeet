@@ -1,11 +1,13 @@
-const mongoose =require('mongoose');
+const mongoose = require("mongoose");
+require("dotenv").config()
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB Connected Successfully to VibeMeet');
-  } catch (error) {
-    console.error('MongoDB Connection Error:', error.message);
+    await mongoose.connect(process.env.MONGODB_URI);
+
+    console.log("✅ MongoDB Connected Successfully");
+  } catch (err) {
+    console.error(err);
     process.exit(1);
   }
 };

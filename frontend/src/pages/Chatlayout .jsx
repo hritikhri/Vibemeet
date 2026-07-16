@@ -63,8 +63,8 @@ export default function ChatLayout() {
 
     try {
       const [chatRes, userRes] = await Promise.all([
-        api.get(`/chats/private/${otherUserId}`),
-        api.get(`/users/${otherUserId}`),
+        api.get(`${import.meta.env.VITE_SOCKET_URL}/chats/private/${otherUserId}`),
+        api.get(`${import.meta.env.VITE_SOCKET_URL}/users/${otherUserId}`),
       ]);
       setMessages(chatRes.data.messages || []);
       setOtherUser(userRes.data);
