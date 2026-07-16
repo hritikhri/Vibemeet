@@ -106,7 +106,7 @@ const startServer = async () => {
     await connectDB();
     // await seedData(); // Seed the database with initial data
     
-    server.listen(PORT, () => {
+    server.listen(PORT, () => {                        
       // console.log(`VibeMeet Backend Started Successfully`);
       console.log(`Server running on: http://localhost:${PORT}`);
       console.log(`Allowed Frontend: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
