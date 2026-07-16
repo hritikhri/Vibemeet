@@ -24,8 +24,8 @@ const limiter = require('./middleware/rateLimiter');
 
 // const DB
 const connectDB =require( './config/db.js');
+const seedData = require('./utils/seed.js');
 
-seedData = require('./utils/seed.js');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {

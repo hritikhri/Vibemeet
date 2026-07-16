@@ -10,7 +10,7 @@ const Activity = require( '../models/Activity.js');
 const PrivateMessage = require( '../models/PrivateMessage.js');
 const Notification = require( '../models/Notification.js');
 
-const seedData = async () => {
+export const seedData = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('🟢 Connected to MongoDB');
