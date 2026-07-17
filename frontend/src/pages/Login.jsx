@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { GoogleLogin } from '@react-oauth/google';
+import DemoBar from './DemoBar';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -128,7 +129,8 @@ export default function Login() {
               Continue with Google
             </button>
           )}
-        />
+          />
+          <DemoBar/>
 
         {/* Signup */}
         <p className="text-center text-xs mt-5 text-gray-500">
@@ -141,3 +143,4 @@ export default function Login() {
     </div>
   );
 }
+
